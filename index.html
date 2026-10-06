@@ -344,7 +344,7 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06h &middot; SURFACE FIX</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06i &middot; SURFACE+</div>
   <button id="startBtn">TAP TO ENGAGE</button>
   <div class="hint" style="max-width:340px;text-align:left">
     <b>HOW TO PLAY</b><br>
@@ -2845,15 +2845,93 @@ const BIOMES=[
 ];
 function lerpAngle(a,b,t){ let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return a+d*t; }
 
+function buildCaveRoof(A,B,width,arch,floorFn){
+  const dx=B[0]-A[0], dz=B[1]-A[1];
+  const L=Math.hypot(dx,dz); if(L<1e-3) return null;
+  const ux=dx/L, uz=dz/L, px=-uz, pz=ux;   // along + perpendicular (xz)
+  const xs=[-1,-0.55,0,0.55,1], steps=6, cols=[];
+  for(let s=0;s<=steps;s++){
+    const t=s/steps, cx=A[0]+dx*t, cz=A[1]+dz*t;
+    const hL=floorFn(cx+px*width*(-1),cz+pz*width*(-1));
+    const hR=floorFn(cx+px*width*(1),cz+pz*width*(1));
+    const sec=[];
+    for(const u of xs){
+      const sx=cx+px*width*u, sz=cz+pz*width*u;
+      const base=hL+(hR-hL)*((u+1)/2);
+      sec.push([sx, base+arch*(1-u*u), sz]);
+    }
+    cols.push(sec);
+  }
+  const arr=[], col=[0.26,0.24,0.30];
+  for(let s=0;s<steps;s++)for(let k=0;k<xs.length-1;k++){
+    pushTriC(arr,cols[s][k],cols[s+1][k],cols[s+1][k+1],col);
+    pushTriC(arr,cols[s][k],cols[s+1][k+1],cols[s][k+1],col);
+  }
+  return makeTerrainMesh(arr);
+}
 function buildSurface(planet, planetIdx){
   const seed=(hashSeed(current.gx*57+planetIdx, 91, current.gz*57+planetIdx))>>>0;
   const biome=BIOMES[seed%BIOMES.length];
   const noise=makeNoise(seed);
+  const texNoise=makeNoise((seed^0x5bd1e995)>>>0);
+  const frng=mulberry32((seed^0x51ed270b)>>>0);
+
+  // ---- impact craters ----
+  const craters=[];
+  const nCr=4+((seed>>>5)%4);
+  for(let k=0;k<nCr;k++){
+    const cx=(frng()*2-1)*(SURF.HALF-260);
+    const cz=(frng()*2-1)*(SURF.HALF-260);
+    if(Math.hypot(cx,cz)<140) continue;
+    const cr=90+frng()*200, cd=14+frng()*34, rim=4+frng()*9;
+    craters.push({cx,cz,cr,cd,rim});
+  }
+  // ---- winding canyon / ravine ----
+  const canyon=[];
+  {
+    const cl=Math.max(60, SURF.HALF-320);
+    let px=(frng()*2-1)*cl, pz=(frng()*2-1)*cl, ang=frng()*Math.PI*2;
+    canyon.push([px,pz]);
+    const nSeg=5+((frng()*4)|0);
+    for(let k=0;k<nSeg;k++){
+      ang+=(frng()-0.5)*1.1;
+      const len=200+frng()*300;
+      px=Math.max(-SURF.HALF+120,Math.min(SURF.HALF-120,px+Math.cos(ang)*len));
+      pz=Math.max(-SURF.HALF+120,Math.min(SURF.HALF-120,pz+Math.sin(ang)*len));
+      canyon.push([px,pz]);
+    }
+  }
+  const CANYON_HW=18, CANYON_DEPTH=30;
+  function distToSeg(px,pz,ax,az,bx,bz){
+    const dx=bx-ax, dz=bz-az, L2=dx*dx+dz*dz;
+    let t=L2>0?((px-ax)*dx+(pz-az)*dz)/L2:0;
+    t=t<0?0:t>1?1:t;
+    return Math.hypot(px-(ax+dx*t), pz-(az+dz*t));
+  }
   const heightAt=(x,z)=>{
     let a=1,f=0.006,s=0,n=0;
     for(let o=0;o<4;o++){ s+=a*noise(x*f,z*f); n+=a; a*=0.5; f*=2; }
     let h=(s/n-0.5)*biome.amp;
     h+=(noise(x*0.02+31.7,z*0.02+11.3)-0.5)*biome.amp*0.25;
+    for(const c of craters){
+      const d=Math.hypot(x-c.cx,z-c.cz);
+      if(d<c.cr){
+        const t=d/c.cr;
+        h-=c.cd*(1-t*t);
+        h+=c.rim*Math.exp(-Math.pow((t-0.9)/0.13,2));
+      }
+    }
+    let cmin=1e9;
+    for(let i=0;i<canyon.length-1;i++){
+      const d=distToSeg(x,z,canyon[i][0],canyon[i][1],canyon[i+1][0],canyon[i+1][1]);
+      if(d<cmin)cmin=d;
+    }
+    if(cmin<CANYON_HW){
+      const t=cmin/CANYON_HW;
+      h-=CANYON_DEPTH*(1-t*t);
+    } else if(cmin<CANYON_HW+14){
+      h+=(6)*Math.exp(-Math.pow((cmin-CANYON_HW-4)/6,2));
+    }
     return h;
   };
   const N=Math.floor(SURF.HALF*2/SURF.STEP);
@@ -2875,11 +2953,16 @@ function buildSurface(planet, planetIdx){
     return u>v ? h00 + u*(h10-h00) + v*(h11-h10)
                : h00 + v*(h01-h00) + u*(h11-h01);
   };
-  const colFor=(y,slope)=>{
+  const colorAt=(x,z,y,slope)=>{
     const t=(y-hmin)/span;
-    const c = t<0.4?biome.low : t<0.72?biome.mid : biome.high;
-    const sh=Math.max(0.62,1-slope*0.85);
-    return [c[0]*sh,c[1]*sh,c[2]*sh];
+    let c = t<0.4?biome.low : t<0.72?biome.mid : biome.high;
+    const rock=[0.33,0.31,0.33];
+    const sc=Math.min(1,slope*1.6);
+    c=[c[0]*(1-sc)+rock[0]*sc, c[1]*(1-sc)+rock[1]*sc, c[2]*(1-sc)+rock[2]*sc];
+    const sp=texNoise(x*0.35,z*0.35);                              // fine grain speckle
+    const band=0.5+0.5*Math.sin(y*0.09+texNoise(x*0.02,z*0.02)*8.0); // strata bands
+    const shade=(0.80+0.30*sp)*(0.92+0.16*band);
+    return [Math.min(1,c[0]*shade),Math.min(1,c[1]*shade),Math.min(1,c[2]*shade)];
   };
   const arr=[];
   const normalAt=(i,j)=>{
@@ -2888,8 +2971,10 @@ function buildSurface(planet, planetIdx){
     return V.norm([hl-hr, 2*SURF.STEP, hd-hu]);
   };
   const V9=(i,j)=>{
-    const n=normalAt(i,j), c=colFor(H[i][j],1-n[1]);
-    arr.push(-SURF.HALF+i*SURF.STEP, H[i][j], -SURF.HALF+j*SURF.STEP, n[0],n[1],n[2], c[0],c[1],c[2]);
+    const n=normalAt(i,j);
+    const x=-SURF.HALF+i*SURF.STEP, z=-SURF.HALF+j*SURF.STEP;
+    const c=colorAt(x,z,H[i][j],1-n[1]);
+    arr.push(x, H[i][j], z, n[0],n[1],n[2], c[0],c[1],c[2]);
   };
   for(let i=0;i<N;i++)for(let j=0;j<N;j++){
     V9(i,j); V9(i+1,j); V9(i+1,j+1);
@@ -2911,8 +2996,24 @@ function buildSurface(planet, planetIdx){
     else type='ruins';
     pois.push({id:'poi'+k,x:px,z:pz,y:ground(px,pz),type,com,collected:false});
   }
+  // walk-in caves: arched roofs over a couple of canyon segments
+  const caveMeshes=[];
+  for(const seg of [1,3]){
+    if(seg+1>=canyon.length) continue;
+    const mesh=buildCaveRoof(canyon[seg],canyon[seg+1],CANYON_HW+9,16,ground);
+    if(mesh) caveMeshes.push(mesh);
+  }
+  // scattered boulders for scale + cover
+  const rocks=[];
+  const nRock=14+((frng()*10)|0);
+  for(let k=0;k<nRock;k++){
+    const rx=(frng()*2-1)*(SURF.HALF-110), rz=(frng()*2-1)*(SURF.HALF-110);
+    if(Math.hypot(rx,rz)<70) continue;
+    rocks.push({x:rx,z:rz,y:ground(rx,rz),r:2.2+frng()*5.0,q:qAxisAngle([1,0.35,1],frng()*6)});
+  }
   const s={planet,planetIdx,seed,biome,heightAt,ground,H,N,mesh:makeTerrainMesh(arr),
     hmin,hspan:span,pois,collected:0,camYaw:Math.PI,aboard:false,
+    craters,canyon,caveMeshes,rocks,
     shipPos:[0,ground(0,0),0],shipQuat:qAxisAngle([0,1,0],0.6)};
   s.mapCanvas=buildTerrainMap(s);
   return s;
@@ -3132,6 +3233,12 @@ function renderSurface(){
   const proj=m4Perspective(Math.PI/3,vw/vh,0.5,200000);
   const VP=m4Mul(proj,cam.view);
   drawTerrainMesh(surface.mesh,m4Compose([0,0,0],qIdent(),1),VP);
+  // cave roofs
+  for(const m of (surface.caveMeshes||[])) drawTerrainMesh(m,m4Compose([0,0,0],qIdent(),1),VP);
+  // boulders
+  for(const r of (surface.rocks||[])){
+    drawSolid(MESHes.asteroid,m4Compose([r.x,r.y+r.r*0.35,r.z],r.q,r.r/70),VP,[0.42,0.40,0.44]);
+  }
   // points of interest
   for(const poi of surface.pois){
     if(poi.collected) continue;
