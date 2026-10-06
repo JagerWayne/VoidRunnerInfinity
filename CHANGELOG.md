@@ -3,7 +3,15 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.12 · HUD & AI (current)
+## 1.13 · HUD II (current)
+- **GALAXY** button moved on top of the radar.
+- **TARGET LOCK** (was Locate) holds the nose on the target until disengaged.
+- **OPTIONS** screen: compact HUD, HUD opacity, button size.
+- **Power pips** (SYS / ENG / WEP) that change shields, speed and fire rate.
+- **Kill count + total bounty** readout.
+- **Velocity and altitude** readout near the reticle.
+
+## 1.12 · HUD & AI
 - Top row: **ship details** (left), **radar** (centre), **target details** (right).
 - **Click the radar** to open the target list (defaults to **ALL**).
 - **LOCATE TARGET** button under the radar turns the ship onto the target.

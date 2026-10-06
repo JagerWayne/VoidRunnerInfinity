@@ -36,32 +36,52 @@
   /* Top: SHIP details (left) - RADAR (centre) - TARGET details (right) */
   #topbar { position:absolute; top:6px; left:6px; right:6px; pointer-events:none; }
   #shipPanel { position:absolute; top:0; left:0; min-width:130px; }
-  #radarWrap { position:absolute; top:0; left:50%; transform:translateX(-50%);
+  /* GALAXY sits on top of the radar */
+  #galaxyBtn { position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    pointer-events:auto; padding:7px 16px; border-radius:18px;
+    border:1.5px solid rgba(90,220,255,0.6); background:rgba(8,26,40,0.82);
+    color:#bfefff; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:2px; }
+  #galaxyBtn:active { background:#2b9fd0; color:#02141d; }
+  #radarWrap { position:absolute; top:44px; left:50%; transform:translateX(-50%);
     width:110px; height:110px; pointer-events:auto;
     border:1.5px solid rgba(80,220,255,0.45); border-radius:50%; overflow:hidden;
     background:rgba(4,12,20,0.55); box-shadow:0 0 12px rgba(0,150,220,0.25); }
   #radar { width:100%; height:100%; display:block; }
   #targetPanel { position:absolute; top:0; right:0; min-width:138px; max-width:190px; }
 
-  /* Under the radar: turn the ship to face the target */
-  #locateBtn { position:absolute; top:122px; left:50%; transform:translateX(-50%);
+  /* Under the radar: lock the ship onto the target */
+  #locateBtn { position:absolute; top:162px; left:50%; transform:translateX(-50%);
     pointer-events:auto; padding:9px 16px; border-radius:20px; font-family:inherit;
     font-size:11px; font-weight:bold; letter-spacing:1px; border:1.5px solid rgba(90,220,255,0.6);
     background:rgba(8,26,40,0.82); color:#bfefff; }
-  #locateBtn:active { background:#2b9fd0; color:#02141d; }
+  #locateBtn:active, #locateBtn.on { background:#ffd166; color:#241a00; }
 
-  /* Galaxy button, top-left under the ship details */
-  #galaxyBtn { position:absolute; top:80px; left:8px; pointer-events:auto; padding:8px 14px;
+  /* Options button, top-left under the ship details */
+  #settingsBtn { position:absolute; top:80px; left:8px; pointer-events:auto; padding:8px 14px;
     border-radius:8px; border:1.5px solid rgba(90,220,255,0.55); background:rgba(8,22,34,0.72);
     color:#bfefff; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:2px; }
-  #galaxyBtn:active { background:#2b9fd0; color:#02141d; }
+  #settingsBtn:active { background:#2b9fd0; color:#02141d; }
 
   #resPanel { position:absolute; left:8px; bottom:14px; }
-  #contractPanel { position:absolute; left:8px; bottom:156px; max-width:200px; }
+  #contractPanel { position:absolute; left:8px; bottom:172px; max-width:200px; }
   #contractPanel #contractHud { font-size:10px; color:#bff4ff; }
 
+  /* Power pips (bottom centre) */
+  #pipsPanel { position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+    display:flex; gap:6px; align-items:center; }
+  .pipBtn { pointer-events:auto; padding:8px 10px; border-radius:8px; font-family:inherit;
+    font-size:10px; font-weight:bold; letter-spacing:1px;
+    border:1.5px solid rgba(90,220,255,0.5); background:rgba(8,22,34,0.72); color:#bfefff; }
+  .pipBtn:active { background:#2b9fd0; color:#02141d; }
+  #pipShow { font-size:10px; color:#bfefff; letter-spacing:1px; margin-left:4px; white-space:nowrap; }
+
+  /* Velocity / altitude near the reticle */
+  #velReadout { position:absolute; left:50%; top:calc(50% + 46px); transform:translateX(-50%);
+    font-size:11px; color:#bfefff; letter-spacing:1px; white-space:nowrap;
+    text-shadow:0 0 6px #062033; pointer-events:none; }
+
   /* Right-side context actions (each appears only when usable) */
-  #actionBar { position:absolute; right:10px; bottom:276px; width:152px;
+  #actionBar { position:absolute; right:10px; bottom:270px; width:152px;
     display:flex; flex-direction:column; gap:6px; align-items:stretch; }
   #actionBar button { pointer-events:auto; padding:11px 10px; border-radius:9px; font-family:inherit;
     font-size:12px; font-weight:bold; letter-spacing:1px; border:1.5px solid rgba(120,255,180,0.7);
@@ -69,6 +89,36 @@
   #actionBar button:active { background:#2fb56a; color:#02141d; }
   #landBtn { display:none; }
   #landBtn.show { display:block; }
+
+  /* HUD size + compact options */
+  #hud.size-s .btn { height:46px; font-size:9px; }
+  #hud.size-s .btn.fire { height:64px; font-size:14px; }
+  #hud.size-s #buttons { width:138px; }
+  #hud.size-l .btn { height:64px; font-size:12px; }
+  #hud.size-l .btn.fire { height:92px; font-size:20px; }
+  #hud.size-l #buttons { width:178px; }
+  #hud.compact .panel { padding:3px 6px; font-size:9px; line-height:1.25; }
+  #hud.compact #radarWrap { width:84px; height:84px; }
+  #hud.compact #buttons .btn { height:46px; font-size:9px; }
+  #hud.compact .btn.fire { height:60px; font-size:13px; }
+  #hud.compact #actionBar button { padding:8px; font-size:10px; }
+
+  /* Settings overlay */
+  #settings { position:fixed; inset:0; z-index:47; background:rgba(3,10,18,0.98);
+    padding:16px; display:flex; flex-direction:column; gap:8px; }
+  #settings h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  .setRow { display:flex; align-items:center; justify-content:space-between; font-size:12px;
+    padding:10px 2px; border-bottom:1px solid rgba(80,220,255,0.12); color:#bfefff; }
+  .setBtn { pointer-events:auto; min-width:44px; padding:8px 12px; border-radius:8px; font-family:inherit;
+    font-size:13px; font-weight:bold; border:1.5px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; margin-left:6px; }
+  .setBtn.on { background:#2b9fd0; color:#02141d; }
+  .setVal { color:#8fd0e0; margin-left:auto; margin-right:8px; }
+  #settings .footer { display:flex; gap:10px; margin-top:auto; }
+  #settings .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #settings .footer button.primary { background:#2b9fd0; color:#02141d; }
 
   /* Reticle */
   #reticle { position:absolute; left:50%; top:50%; width:64px; height:64px; margin:-32px 0 0 -32px; }
@@ -187,6 +237,37 @@
   .clog h4 { color:#8fe9ff; font-size:11px; letter-spacing:1px; margin:10px 0 2px; }
   .clog ul { margin:0 0 4px 16px; padding:0; }
   .clog li { font-size:11px; color:#bcd6e0; line-height:1.5; }
+
+  /* Settings overlay */
+  #settings { position:fixed; inset:0; z-index:47; background:rgba(3,10,18,0.98);
+    padding:16px; display:flex; flex-direction:column; gap:10px; }
+  #settings h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  .setRow { display:flex; align-items:center; justify-content:space-between; font-size:12px;
+    letter-spacing:1px; color:#9fd8e8; border-bottom:1px solid rgba(80,220,255,0.12); padding:8px 2px; }
+  .setBtn { pointer-events:auto; min-width:44px; padding:8px 12px; margin-left:6px; border-radius:8px;
+    font-family:inherit; font-size:12px; font-weight:bold; border:1.5px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; }
+  .setBtn:active, .setBtn.on { background:#2b9fd0; color:#02141d; }
+  .setVal { color:#bff4ff; margin-right:6px; }
+  #settings .footer { display:flex; gap:10px; margin-top:auto; }
+  #settings .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #settings .footer button.primary { background:#2b9fd0; color:#02141d; }
+
+  /* HUD size + compact options */
+  #hud.size-s .btn { height:46px; font-size:9px; }
+  #hud.size-s .btn.fire { height:64px; font-size:14px; }
+  #hud.size-s #buttons { width:138px; }
+  #hud.size-s #actionBar { width:138px; }
+  #hud.size-l .btn { height:64px; font-size:12px; }
+  #hud.size-l .btn.fire { height:92px; font-size:20px; }
+  #hud.size-l #buttons { width:182px; }
+  #hud.size-l #actionBar { width:182px; }
+  #hud.compact .panel { padding:3px 6px; font-size:9px; line-height:1.25; }
+  #hud.compact #radarWrap { width:86px; height:86px; top:40px; }
+  #hud.compact #contractPanel { display:none; }
+  #hud.compact #velReadout { display:none; }
   #changelogBtn { pointer-events:auto; background:transparent !important; color:#5fe6ff !important;
     border:1px solid rgba(90,220,255,0.5) !important; box-shadow:none !important; font-size:11px;
     padding:8px 18px !important; margin-top:0 !important; letter-spacing:2px; }
@@ -260,7 +341,8 @@
   #hud.surface-mode #reticle, #hud.surface-mode #targetBox, #hud.surface-mode #leadPip,
   #hud.surface-mode #waypoint, #hud.surface-mode #contractPanel, #hud.surface-mode #buttons,
   #hud.surface-mode #locateBtn, #hud.surface-mode #galaxyBtn, #hud.surface-mode #resPanel,
-  #hud.surface-mode #actionBar { display:none !important; }
+  #hud.surface-mode #actionBar, #hud.surface-mode #pipsPanel, #hud.surface-mode #velReadout,
+  #hud.surface-mode #settingsBtn { display:none !important; }
   #sfcPanel { display:none; position:absolute; top:8px; left:8px; right:140px; text-align:left; }
   #hud.surface-mode #sfcPanel { display:block; }
   #sfcPanel .val { font-size:11px; }
@@ -317,8 +399,9 @@
     </div>
   </div>
 
-  <button id="locateBtn">LOCATE TARGET</button>
   <button id="galaxyBtn">GALAXY</button>
+  <button id="locateBtn">TARGET LOCK</button>
+  <button id="settingsBtn">OPTIONS</button>
 
   <div id="resPanel" class="panel">
     <div><span class="lbl">SYS</span> <span class="val" id="sysName">---</span></div>
@@ -328,7 +411,17 @@
     <div><span class="lbl">FUEL</span> <span class="val" id="fuelVal">100%</span></div>
     <div><span class="lbl">HEAT</span> <span class="val" id="heatVal">0%</span></div>
     <div><span class="lbl">CARGO</span> <span class="val" id="cargoVal">0/20</span></div>
+    <div><span class="lbl">KILLS</span> <span class="val" id="killsVal">0</span>
+         <span class="lbl">BOUNTY</span> <span class="val" id="bountyVal">0</span></div>
   </div>
+
+  <div id="pipsPanel">
+    <button class="pipBtn" id="pipSysBtn">SYS</button>
+    <button class="pipBtn" id="pipEngBtn">ENG</button>
+    <button class="pipBtn" id="pipWepBtn">WEP</button>
+    <div id="pipShow">SYS &#9646;&#9646; ENG &#9646;&#9646; WEP &#9646;&#9646;</div>
+  </div>
+  <div id="velReadout">SPD 0 &nbsp; ALT ---</div>
 
   <div id="contractPanel" class="panel hidden">
     <div class="lbl">CONTRACTS</div>
@@ -383,7 +476,7 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06n &middot; HUD</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06o &middot; HUD 2</div>
   <button id="startBtn">TAP TO ENGAGE</button>
   <button id="changelogBtn">CHANGELOG</button>
   <div class="hint" style="max-width:340px;text-align:left">
@@ -454,6 +547,16 @@
   <h2>CHANGELOG</h2>
   <div id="changelogList" class="clog"></div>
   <div class="footer"><button id="closeChangelogBtn" class="primary">BACK</button></div>
+</div>
+
+<div id="settings" class="hidden">
+  <h2>OPTIONS</h2>
+  <div class="setRow"><span>COMPACT HUD</span><button id="setCompactBtn" class="setBtn">OFF</button></div>
+  <div class="setRow"><span>HUD OPACITY</span><span class="setVal" id="setOpVal">100%</span>
+    <span><button id="setOpDownBtn" class="setBtn">&#8722;</button><button id="setOpUpBtn" class="setBtn">+</button></span></div>
+  <div class="setRow"><span>BUTTON SIZE</span>
+    <span><button id="setSizeSBtn" class="setBtn">S</button><button id="setSizeMBtn" class="setBtn">M</button><button id="setSizeLBtn" class="setBtn">L</button></span></div>
+  <div class="footer"><button id="closeSettingsBtn" class="primary">BACK</button></div>
 </div>
 
 <div id="warp" class="hidden"><div class="warpText">HYPERSPACE</div></div>
@@ -1044,7 +1147,12 @@ const game={
   locked:false,
   mineProgress:0,
   contracts:[],
+  kills:0,
+  bounty:0,
+  pips:{sys:2,eng:2,wep:2},
 };
+// User-adjustable HUD options
+const settings={compact:false,opacity:1,size:'m'};
 
 const ship={
   pos:[0,0,-260],
@@ -1416,7 +1524,7 @@ function bindTap(id,fn){
 }
 bindHold('mineBtn',()=>input.mine=true,()=>input.mine=false);
 bindTap('hailBtn',()=>hailTarget());
-document.getElementById('locateBtn').addEventListener('pointerdown',e=>{e.preventDefault();locateTarget();},{passive:false});
+document.getElementById('locateBtn').addEventListener('pointerdown',e=>{e.preventDefault();toggleTargetLock();},{passive:false});
 document.getElementById('radarWrap').addEventListener('pointerdown',e=>{e.preventDefault();openTargets();},{passive:false});
 document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();input.jump=true;},{passive:false});
 document.getElementById('sfcActionBtn').addEventListener('pointerdown',e=>{e.preventDefault();sfcAction();},{passive:false});
@@ -1588,27 +1696,26 @@ function hitFlash(){
   hitFlash._t=setTimeout(()=>{el.style.opacity='0';},120);
 }
 
-let locateActive=false;
-function locateTarget(){
+let targetLocked=false;
+function updateLockBtn(){ const b=$('locateBtn'); if(b){ b.classList.toggle('on',targetLocked); b.textContent=targetLocked?'LOCKED':'TARGET LOCK'; } }
+function toggleTargetLock(){
   if(game.state!==STATE.FLIGHT) return;
-  if(!currentTarget()){ toast('NO TARGET TO LOCATE'); return; }
-  locateActive=true;
-  toast('LOCATING TARGET');
-  blip(560,0.1,'triangle');
+  if(targetLocked){ targetLocked=false; toast('TARGET LOCK OFF'); updateLockBtn(); return; }
+  if(!currentTarget()){ toast('NO TARGET TO LOCK'); return; }
+  targetLocked=true; toast('TARGET LOCKED'); blip(560,0.1,'triangle'); updateLockBtn();
 }
 function updateShip(dt){
-  // "Locate Target" auto-turns the nose onto the target (dogfight assist)
-  if(locateActive){
+  // Target Lock: keeps the nose on the target until disengaged.
+  if(targetLocked){
     const t=currentTarget();
-    if(!t || V.len(input.stick)>0.15) locateActive=false;   // cancelled by player input
+    if(!t){ targetLocked=false; updateLockBtn(); }
     else {
       const dir=V.norm(V.sub(t.pos,ship.pos));
       ship.quat=qLerp(ship.quat,qLookAt(dir,[0,1,0]),1-Math.exp(-7*dt));
       ship.angVel=[0,0,0];
-      if(V.dot(shipForward(),dir)>0.999) locateActive=false;
     }
   }
-  if(!locateActive){
+  if(!targetLocked){
     // rotation
     const yawIn = -input.stick[0];
     const pitchIn = -input.stick[1];
@@ -1639,7 +1746,8 @@ function updateShip(dt){
   ship.boosting=boosting;
 
   const fwd=shipForward();
-  const speed=MAX_SPEED*ship.throttle*(boosting?BOOST_MULT:1);
+  const engMul=0.9+(game.pips.eng-2)*0.06;              // ENG pips -> top speed
+  const speed=MAX_SPEED*ship.throttle*(boosting?BOOST_MULT:1)*engMul;
   const desired=V.scale(fwd,speed);
   if(ship.faOn){
     ship.vel=V.lerp(ship.vel,desired,1-Math.exp(-2.5*dt));
@@ -1677,7 +1785,7 @@ function updateShip(dt){
   ship.fireCd=Math.max(0,ship.fireCd-dt);
   if(input.fire && ship.fireCd<=0 && game.state===STATE.FLIGHT){
     fireBolt('player');
-    ship.fireCd=COMBAT.fireCd;
+    ship.fireCd=COMBAT.fireCd*(1-(game.pips.wep-2)*0.06);   // WEP pips -> fire rate
     ship.heat=Math.min(100,ship.heat+12);
     laserSfx('player');
     vibrate(12);
@@ -1685,7 +1793,7 @@ function updateShip(dt){
 
   // shield/hull regen
   ship.hitT=Math.max(0,ship.hitT-dt);
-  if(ship.hitT<=0) ship.shield=Math.min(100,ship.shield+4*dt);
+  if(ship.hitT<=0) ship.shield=Math.min(100,ship.shield+(3+(game.pips.sys-2)*1.5)*dt);  // SYS pips -> shield regen
   if(ship.hull<=0) destroyPlayer();
   if(ship.heat>95) ship.hull=Math.max(0,ship.hull-6*dt);
 }
@@ -1773,7 +1881,7 @@ function damageEnemy(e,dmg){
     e.alive=false;
     FX.explosion(e.pos,1.4,[1.0,0.45,0.15]);
     const bounty=380+wave*60;
-    game.credits+=bounty;
+    game.credits+=bounty; game.kills++; game.bounty+=bounty;
     toast('BOUNTY CLAIMED  +'+bounty+' CR');
     explosionSfx(1.0); vibrate([40,30,60]);
     if(game.targetId===e.id) game.targetId=null;
@@ -2135,6 +2243,12 @@ function updateHUD(dt){
   }
   updateContractHud();
   checkContracts();
+  setText('killsVal',game.kills);
+  setText('bountyVal',game.bounty.toLocaleString());
+  let alt=null;
+  for(const p of system.planets){ const a=V.len(V.sub(ship.pos,p.pos))-p.r; if(alt===null||a<alt) alt=a; }
+  setText('velReadout','SPD '+Math.round(V.len(ship.vel))+'   ALT '+(alt!==null?(alt/1000).toFixed(1)+'km':'---'));
+  renderPips();
   $('thrFill').style.height=(ship.throttle*100)+'%';
 }
 function updateContractHud(){
@@ -2728,7 +2842,9 @@ function saveGame(){
   try{
     localStorage.setItem(SAVE_KEY,JSON.stringify({
       credits:game.credits, cargo:game.cargo, fuel:game.fuel,
-      gx:current.gx, gz:current.gz
+      gx:current.gx, gz:current.gz,
+      kills:game.kills, bounty:game.bounty, pips:game.pips,
+      settings:settings
     }));
   }catch(e){}
 }
@@ -2740,6 +2856,10 @@ function loadGame(){
     if(d.cargo&&typeof d.cargo==='object') game.cargo=d.cargo;
     if(typeof d.fuel==='number') game.fuel=d.fuel;
     if(typeof d.gx==='number'&&typeof d.gz==='number'){ current.gx=d.gx; current.gz=d.gz; }
+    if(typeof d.kills==='number') game.kills=d.kills;
+    if(typeof d.bounty==='number') game.bounty=d.bounty;
+    if(d.pips&&typeof d.pips==='object') game.pips=d.pips;
+    if(d.settings&&typeof d.settings==='object'){ settings.compact=!!d.settings.compact; settings.opacity=d.settings.opacity||1; settings.size=d.settings.size||'m'; }
   }catch(e){}
 }
 $('undockBtn').addEventListener('pointerdown',e=>{e.preventDefault();leaveTrade();},{passive:false});
@@ -2871,7 +2991,15 @@ $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJ
 
 /* ----------------------------- CHANGELOG --------------------------------- */
 const CHANGELOG=[
-  {v:'1.12 \u00b7 HUD & AI (current)', items:[
+  {v:'1.13 \u00b7 HUD II (current)', items:[
+    'GALAXY button moved on top of the radar',
+    'TARGET LOCK (was Locate) holds the nose on the target until disengaged',
+    'OPTIONS screen: compact HUD, HUD opacity, button size',
+    'Power pips (SYS / ENG / WEP) that change shields, speed and fire rate',
+    'Kill count + total bounty readout',
+    'Velocity and altitude readout near the reticle',
+  ]},
+  {v:'1.12 \u00b7 HUD & AI', items:[
     'Top row: ship details (left), radar (centre), target details (right)',
     'Click the radar to open the target list (defaults to ALL)',
     'LOCATE TARGET button under the radar turns the ship onto the target',
@@ -2938,6 +3066,47 @@ function openChangelog(){ $('changelog').classList.remove('hidden'); renderChang
 function closeChangelog(){ $('changelog').classList.add('hidden'); }
 document.getElementById('changelogBtn').addEventListener('pointerdown',e=>{e.preventDefault();openChangelog();},{passive:false});
 document.getElementById('closeChangelogBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeChangelog();},{passive:false});
+
+/* ----------------------------- POWER PIPS -------------------------------- */
+function renderPips(){
+  const el=$('pipShow'); if(!el) return;
+  const bar=n=>'\u25AE'.repeat(n)+'\u25AF'.repeat(6-n);
+  el.textContent='SYS '+bar(game.pips.sys)+'  ENG '+bar(game.pips.eng)+'  WEP '+bar(game.pips.wep);
+}
+function allocatePip(k){
+  const keys=['sys','eng','wep']; let src=null;
+  for(const key of keys){ if(key!==k && (src===null || game.pips[key]>game.pips[src])) src=key; }
+  if(src && src!==k && game.pips[src]>=game.pips[k]){ game.pips[src]--; game.pips[k]++; blip(600,0.05,'square'); }
+  renderPips(); saveGame();
+}
+document.getElementById('pipSysBtn').addEventListener('pointerdown',e=>{e.preventDefault();allocatePip('sys');},{passive:false});
+document.getElementById('pipEngBtn').addEventListener('pointerdown',e=>{e.preventDefault();allocatePip('eng');},{passive:false});
+document.getElementById('pipWepBtn').addEventListener('pointerdown',e=>{e.preventDefault();allocatePip('wep');},{passive:false});
+
+/* ----------------------------- SETTINGS ---------------------------------- */
+function renderSettings(){
+  const c=$('setCompactBtn'); if(c){ c.textContent=settings.compact?'ON':'OFF'; c.classList.toggle('on',settings.compact); }
+  const ov=$('setOpVal'); if(ov) ov.textContent=Math.round(settings.opacity*100)+'%';
+  for(const s of ['s','m','l']){ const b=$('setSize'+s.toUpperCase()+'Btn'); if(b) b.classList.toggle('on',settings.size===s); }
+}
+function applySettings(){
+  const hud=$('hud'); if(!hud) return;
+  hud.classList.toggle('compact',settings.compact);
+  hud.classList.remove('size-s','size-m','size-l');
+  hud.classList.add('size-'+settings.size);
+  hud.style.opacity=settings.opacity;
+  renderSettings();
+}
+function openSettings(){ $('settings').classList.remove('hidden'); renderSettings(); }
+function closeSettings(){ $('settings').classList.add('hidden'); }
+document.getElementById('settingsBtn').addEventListener('pointerdown',e=>{e.preventDefault();openSettings();},{passive:false});
+document.getElementById('closeSettingsBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeSettings();},{passive:false});
+document.getElementById('setCompactBtn').addEventListener('pointerdown',e=>{e.preventDefault();settings.compact=!settings.compact;applySettings();saveGame();},{passive:false});
+document.getElementById('setOpDownBtn').addEventListener('pointerdown',e=>{e.preventDefault();settings.opacity=Math.max(0.4,Math.round((settings.opacity-0.1)*10)/10);applySettings();saveGame();},{passive:false});
+document.getElementById('setOpUpBtn').addEventListener('pointerdown',e=>{e.preventDefault();settings.opacity=Math.min(1,Math.round((settings.opacity+0.1)*10)/10);applySettings();saveGame();},{passive:false});
+document.getElementById('setSizeSBtn').addEventListener('pointerdown',e=>{e.preventDefault();settings.size='s';applySettings();saveGame();},{passive:false});
+document.getElementById('setSizeMBtn').addEventListener('pointerdown',e=>{e.preventDefault();settings.size='m';applySettings();saveGame();},{passive:false});
+document.getElementById('setSizeLBtn').addEventListener('pointerdown',e=>{e.preventDefault();settings.size='l';applySettings();saveGame();},{passive:false});
 
 /* ----------------------------- TOAST ------------------------------------- */
 let toastTimer=0;
@@ -3461,8 +3630,17 @@ function updateUI(){
   const surf=st===STATE.SURFACE;
   const hud=$('hud'); if(hud) hud.classList.toggle('surface-mode', surf);
   const deck=$('buttons'); if(deck) deck.style.display=(st===STATE.FLIGHT)?'':'none';
+  // keep the context action slot just above the button deck
+  const bar=$('actionBar');
+  if(deck && bar && deck.getBoundingClientRect){
+    const r=deck.getBoundingClientRect();
+    if(r) bar.style.bottom=(vh-r.top+8)+'px';
+  }
   if(st===STATE.FLIGHT){ updateFlightButtons(); }
-  else { const land=$('landBtn'); if(land) land.classList.remove('show'); }
+  else {
+    const land=$('landBtn'); if(land) land.classList.remove('show');
+    if(targetLocked){ targetLocked=false; updateLockBtn(); }
+  }
   if(surf) updateSfcUI();
 }
 
@@ -3519,6 +3697,8 @@ function startGame(){
   initAudio();
   if(actx&&actx.state==='suspended') actx.resume();
   loadGame();
+  applySettings();
+  renderPips();
   loadSystem(current.gx,current.gz);
   cam.smooth=V.add(ship.pos,qRotate([0,7,24],ship.quat));
   $('gate').classList.add('hidden');
