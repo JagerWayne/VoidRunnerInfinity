@@ -147,6 +147,24 @@
   #targetList { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
     border:1px solid rgba(80,220,255,0.25); border-radius:8px; }
 
+  /* Changelog */
+  #changelog { position:fixed; inset:0; z-index:46; background:rgba(3,10,18,0.98);
+    padding:16px; display:flex; flex-direction:column; gap:8px; }
+  #changelog h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  #changelogList { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    border:1px solid rgba(80,220,255,0.25); border-radius:8px; padding:8px 12px; }
+  #changelog .footer { display:flex; gap:10px; }
+  #changelog .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #changelog .footer button.primary { background:#2b9fd0; color:#02141d; }
+  .clog h4 { color:#8fe9ff; font-size:11px; letter-spacing:1px; margin:10px 0 2px; }
+  .clog ul { margin:0 0 4px 16px; padding:0; }
+  .clog li { font-size:11px; color:#bcd6e0; line-height:1.5; }
+  #changelogBtn { pointer-events:auto; background:transparent !important; color:#5fe6ff !important;
+    border:1px solid rgba(90,220,255,0.5) !important; box-shadow:none !important; font-size:11px;
+    padding:8px 18px !important; margin-top:0 !important; letter-spacing:2px; }
+
   /* Galaxy map */
   #galaxy { position:fixed; inset:0; z-index:32; background:rgba(3,10,18,0.97);
     padding:12px; display:flex; flex-direction:column; gap:8px; }
@@ -344,8 +362,9 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06i &middot; SURFACE+</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06j &middot; FIXES</div>
   <button id="startBtn">TAP TO ENGAGE</button>
+  <button id="changelogBtn">CHANGELOG</button>
   <div class="hint" style="max-width:340px;text-align:left">
     <b>HOW TO PLAY</b><br>
     1. LEFT thumb steers, RIGHT thumb fires / boosts.<br>
@@ -405,9 +424,15 @@
   </div>
   <div id="galaxyInfo" class="panel">TAP A STAR TO PLOT A COURSE</div>
   <div class="footer">
-    <button id="jumpBtn" class="primary">ENGAGE JUMP</button>
+    <button id="engageJumpBtn" class="primary">ENGAGE JUMP</button>
     <button id="closeGalaxyBtn">CLOSE</button>
   </div>
+</div>
+
+<div id="changelog" class="hidden">
+  <h2>CHANGELOG</h2>
+  <div id="changelogList" class="clog"></div>
+  <div class="footer"><button id="closeChangelogBtn" class="primary">BACK</button></div>
 </div>
 
 <div id="warp" class="hidden"><div class="warpText">HYPERSPACE</div></div>
@@ -1146,7 +1171,7 @@ function getSystem(gx,gz){
 
 /* ----------------------------- COMBAT ENTITIES (M5) ---------------------- */
 const projectiles=[];
-const COMBAT={ boltSpeed:700, boltLife:2.2, boltDmg:7, fireCd:0.16 };
+const COMBAT={ boltSpeed:700, boltLife:2.2, boltDmg:9, fireCd:0.14 };
 const MAX_ENEMIES=3;
 let wave=0, enemySeq=0, enemyRespawnTimer=null;
 const enemies=[];
@@ -1154,7 +1179,7 @@ const enemies=[];
 function makeEnemy(i,count){
   const level=system.danger+wave;
   const base = system.station ? system.station.pos : [0,0,0];
-  const hullMax=70+level*22, shieldMax=40+level*16;
+  const hullMax=34+level*10, shieldMax=16+level*6;   // ~7-10 hits to kill, not a bullet sponge
   // pick an approach vector that does not drop the hostile on top of the player
   let spawn=V.add(base,[900,180,0]);
   for(let k=0;k<8;k++){
@@ -2806,7 +2831,50 @@ if(gcanvas){
 }
 $('galaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();openGalaxy();},{passive:false});
 $('closeGalaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeGalaxy();},{passive:false});
-$('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
+$('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
+
+/* ----------------------------- CHANGELOG --------------------------------- */
+const CHANGELOG=[
+  {v:'1.8 \u00b7 FIXES (current)', items:[
+    'Fixed the ENGAGE JUMP button (duplicate element id)',
+    'Richer planetary colour + per-channel terrain texture',
+    'Enemies no longer bullet sponges (~8 hits to kill)',
+    'Added this in-game changelog',
+  ]},
+  {v:'1.7 \u00b7 SURFACE+', items:[
+    'Impact craters with raised rims',
+    'Winding canyon / ravine',
+    'Walk-in arched cave roofs',
+    'Scattered boulders',
+    'Terrain texturing: grain speckle, strata bands, rocky slopes',
+  ]},
+  {v:'1.6 \u00b7 SURFACE FIX', items:[
+    'Collide against the rendered terrain mesh (no more floor clipping)',
+    'Smaller 2200x2200 patch with a finer 40 m grid',
+    'Camera raycast tests against the mesh',
+  ]},
+  {v:'1.5 \u00b7 MOVE FIX', items:['Corrected surface movement direction (was mirrored)','Right-side drag orbits the camera']},
+  {v:'1.4 \u00b7 DOGFIGHT', items:['Banked dogfight AI: pursue / attack / break / regroup','Lead-intercept aiming and target separation','Raycast camera collision on the surface']},
+  {v:'1.3 \u00b7 NO-CLIP', items:['Player stands on slopes via footprint ground sampling','Camera kept above the terrain']},
+  {v:'1.2 \u00b7 SURFACE 2.0', items:['Terrain minimap with ship + sample markers','Points of interest (ore/crash/camp/ruins) with rewards','Look-drag camera, sprint, surface stats HUD']},
+  {v:'1.1 \u00b7 LANDING', items:['Land on planets and walk the surface','Procedurally generated terrain per planet','Board the ship and launch back to orbit']},
+  {v:'1.0 \u00b7 UI / TARGETS', items:['Target list with type tabs (hostile/trader/asteroid/station/planet)','Solid filled shapes replace wireframes','New button control deck','Reticle placed on the true fire axis']},
+  {v:'0.9 \u00b7 VFX', items:['Solid-colour particle system','Muzzle flashes, impact sparks, shield flares','Explosions, smoke and shockwave rings','Engine trails; opaque rendering']},
+  {v:'0.8 \u00b7 MINING & TRADE', items:['Mine asteroids for ore / ice / metals / rare / gems','Trade ship-to-ship with haulers','Contract board: delivery, bounty, mining','12 commodities']},
+  {v:'0.7 \u00b7 TARGETING', items:['Switchable contacts, cycle + tap-radar selection','Lock-on with lead indicator','Target brackets (on/off screen)','Multiple hostiles; fixed orientation math']},
+  {v:'0.6 \u00b7 GALAXY', items:['Procedural galaxy of star systems','Hyperspace warp with fuel','System types: inhabited / derelict / pirate / empty','Per-system economies and persistence']},
+  {v:'0.5 \u00b7 COMBAT & COLLISION', items:['Ship-vs-world collision with damage','Swept projectile hit detection','Flight-assist speed cap, heat cap, roll controls','Death/respawn and enemy waves']},
+  {v:'0.4 \u00b7 UNDOCK', items:['Ship launches facing away from the station']},
+  {v:'0.1 \u00b7 CORE', items:['Single-file WebGL space sim','6DOF flight with flight-assist toggle','Seeded star system, HUD and radar','Combat vs AI, docking and station market','Procedural audio + haptics']},
+];
+function renderChangelog(){
+  const el=$('changelogList'); if(!el) return;
+  el.innerHTML=CHANGELOG.map(g=>'<h4>'+g.v+'</h4><ul>'+g.items.map(i=>'<li>'+i+'</li>').join('')+'</ul>').join('');
+}
+function openChangelog(){ $('changelog').classList.remove('hidden'); renderChangelog(); $('changelogList').scrollTop=0; }
+function closeChangelog(){ $('changelog').classList.add('hidden'); }
+document.getElementById('changelogBtn').addEventListener('pointerdown',e=>{e.preventDefault();openChangelog();},{passive:false});
+document.getElementById('closeChangelogBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeChangelog();},{passive:false});
 
 /* ----------------------------- TOAST ------------------------------------- */
 let toastTimer=0;
@@ -2837,11 +2905,15 @@ function makeNoise(seed){
   };
 }
 const BIOMES=[
-  {name:'DESERT',  amp:110, sky:[0.62,0.55,0.38], low:[0.52,0.40,0.22], mid:[0.80,0.66,0.38], high:[0.94,0.86,0.64]},
-  {name:'ICE',     amp:130, sky:[0.66,0.78,0.90], low:[0.50,0.66,0.82], mid:[0.82,0.90,0.98], high:[1.00,1.00,1.00]},
-  {name:'FOREST',  amp:150, sky:[0.34,0.46,0.40], low:[0.14,0.28,0.15], mid:[0.28,0.52,0.24], high:[0.62,0.64,0.46]},
-  {name:'VOLCANIC',amp:230, sky:[0.30,0.14,0.12], low:[0.16,0.12,0.12], mid:[0.42,0.22,0.20], high:[0.82,0.36,0.18]},
-  {name:'BARREN',  amp:120, sky:[0.13,0.13,0.18], low:[0.30,0.30,0.33], mid:[0.54,0.54,0.58], high:[0.82,0.82,0.88]},
+  {name:'DESERT',   amp:110, sky:[0.66,0.54,0.32], low:[0.62,0.40,0.16], mid:[0.88,0.66,0.30], high:[0.99,0.88,0.60]},
+  {name:'ICE',      amp:130, sky:[0.60,0.78,0.94], low:[0.38,0.66,0.88], mid:[0.72,0.88,0.99], high:[1.00,1.00,1.00]},
+  {name:'FOREST',   amp:150, sky:[0.30,0.46,0.36], low:[0.10,0.30,0.13], mid:[0.22,0.54,0.20], high:[0.60,0.66,0.40]},
+  {name:'VOLCANIC', amp:230, sky:[0.34,0.12,0.10], low:[0.48,0.10,0.05], mid:[0.24,0.14,0.14], high:[0.70,0.30,0.14]},
+  {name:'BARREN',   amp:120, sky:[0.14,0.14,0.19], low:[0.36,0.30,0.28], mid:[0.58,0.50,0.46], high:[0.86,0.80,0.76]},
+  {name:'OCEANIC',  amp:90,  sky:[0.28,0.56,0.72], low:[0.08,0.34,0.54], mid:[0.20,0.58,0.68], high:[0.62,0.86,0.82]},
+  {name:'CRIMSON',  amp:160, sky:[0.44,0.20,0.20], low:[0.44,0.13,0.13], mid:[0.70,0.27,0.22], high:[0.92,0.62,0.50]},
+  {name:'TOXIC',    amp:140, sky:[0.34,0.42,0.16], low:[0.30,0.42,0.09], mid:[0.56,0.66,0.16], high:[0.84,0.88,0.38]},
+  {name:'TUNDRA',   amp:125, sky:[0.40,0.40,0.58], low:[0.34,0.32,0.50], mid:[0.60,0.58,0.76], high:[0.90,0.92,0.98]},
 ];
 function lerpAngle(a,b,t){ let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return a+d*t; }
 
@@ -2959,10 +3031,16 @@ function buildSurface(planet, planetIdx){
     const rock=[0.33,0.31,0.33];
     const sc=Math.min(1,slope*1.6);
     c=[c[0]*(1-sc)+rock[0]*sc, c[1]*(1-sc)+rock[1]*sc, c[2]*(1-sc)+rock[2]*sc];
-    const sp=texNoise(x*0.35,z*0.35);                              // fine grain speckle
+    const sp=texNoise(x*0.35,z*0.35);                                // fine grain
     const band=0.5+0.5*Math.sin(y*0.09+texNoise(x*0.02,z*0.02)*8.0); // strata bands
-    const shade=(0.80+0.30*sp)*(0.92+0.16*band);
-    return [Math.min(1,c[0]*shade),Math.min(1,c[1]*shade),Math.min(1,c[2]*shade)];
+    const shade=(0.82+0.26*sp)*(0.90+0.18*band);
+    // independent per-channel variation + slow warm/cool patches => richer colour
+    const g1=0.90+0.20*texNoise(x*0.06,z*0.06);
+    const g2=0.90+0.20*texNoise(x*0.06+41,z*0.06+17);
+    const g3=0.90+0.20*texNoise(x*0.06-23,z*0.06+63);
+    const warm=(texNoise(x*0.010+7,z*0.010-3)-0.5)*0.20;
+    const cl=v=>v<0?0:v>1?1:v;
+    return [cl(c[0]*shade*g1+warm), cl(c[1]*shade*g2), cl(c[2]*shade*g3-warm)];
   };
   const arr=[];
   const normalAt=(i,j)=>{
