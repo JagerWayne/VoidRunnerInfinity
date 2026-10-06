@@ -344,7 +344,7 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06e &middot; NO-CLIP</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06f &middot; DOGFIGHT</div>
   <button id="startBtn">TAP TO ENGAGE</button>
   <div class="hint" style="max-width:340px;text-align:left">
     <b>HOW TO PLAY</b><br>
@@ -1164,13 +1164,17 @@ function makeEnemy(i,count){
     spawn=p;
     if(V.len(V.sub(p,ship.pos))>850) break;
   }
+  const speed=130+level*10+Math.random()*30;
+  const toShip=V.norm(V.sub(ship.pos,spawn));
   return {
     id:'e'+(++enemySeq),
     name:(system.type==='pirate'?'SYNDICATE RAIDER':'CORSAIR')+'-'+String.fromCharCode(65+i),
     pos:spawn,
-    vel:[0,0,0], quat:qIdent(),
+    vel:V.scale(toShip,speed*0.6), fwdPrev:toShip.slice(), quat:qLookAt(toShip,[0,1,0]),
     hull:hullMax, hullMax, shield:shieldMax, shieldMax,
-    hitT:0, alive:true, radius:14, fireCd:1+Math.random(), speed:85+level*8,
+    hitT:0, alive:true, radius:14, fireCd:0.6+Math.random()*1.2,
+    speed, turnRate:1.05+Math.random()*0.5, state:'PURSUE', t:0,
+    burst:0, bank:0,
   };
 }
 function resetEnemies(){
@@ -1722,44 +1726,116 @@ function scheduleEnemyRespawn(){
     blip(200,0.4,'square');
   },9000);
 }
+function predictedLead(from,targetPos,shooterVel,targetVel){
+  const s=COMBAT.boltSpeed;
+  const r=V.sub(targetPos,from);
+  const v=V.sub(targetVel||[0,0,0],shooterVel||[0,0,0]);
+  const a=V.dot(v,v)-s*s, b=2*V.dot(r,v), c=V.dot(r,r);
+  let t;
+  if(Math.abs(a)<1e-6){ if(Math.abs(b)<1e-6) return targetPos; t=-c/b; }
+  else{
+    const disc=b*b-4*a*c; if(disc<0) return targetPos;
+    const sq=Math.sqrt(disc);
+    const t1=(-b-sq)/(2*a), t2=(-b+sq)/(2*a);
+    const cand=[t1,t2].filter(x=>x>0);
+    if(!cand.length) return targetPos;
+    t=Math.min.apply(null,cand);
+  }
+  if(!isFinite(t)||t<0||t>3) return targetPos;
+  return V.add(targetPos,V.scale(targetVel||[0,0,0],t));
+}
+// Rotate a heading toward a desired heading, capped by a turn rate (arcing flight).
+// Uses an axis-angle rotation so it stays stable through 180-degree turns.
+function steerDir(fwd,desired,maxTurn,dt){
+  fwd=V.norm(fwd); desired=V.norm(desired);
+  const d=Math.max(-1,Math.min(1,V.dot(fwd,desired)));
+  const ang=Math.acos(d);
+  if(ang<1e-4) return desired;
+  const step=Math.min(ang,maxTurn*dt);
+  let axis=V.cross(fwd,desired);
+  if(V.len(axis)<1e-4){
+    axis=V.cross(fwd,[0,1,0]);
+    if(V.len(axis)<1e-4) axis=V.cross(fwd,[1,0,0]);
+  }
+  axis=V.norm(axis);
+  return V.norm(qRotate(fwd,qAxisAngle(axis,step)));
+}
 function updateEnemies(dt){
   for(const e of enemies){
     if(!e.alive) continue;
-    e.fireCd-=dt;
+    e.fireCd-=dt; e.t-=dt;
     e.hitT=Math.max(0,e.hitT-dt);
     if(e.hitT<=0) e.shield=Math.min(e.shieldMax,e.shield+e.shieldMax*0.08*dt);
 
     const toShip=V.sub(ship.pos,e.pos);
     const dist=V.len(toShip);
     const dir=V.norm(toShip);
+    const hasVel=V.len(e.vel)>1e-3;
+    const heading=hasVel?V.norm(e.vel):e.fwdPrev;
+    const align=V.dot(heading,dir);
+    const lead=predictedLead(e.pos,ship.pos,e.vel,ship.vel);
+    const toLead=V.norm(V.sub(lead,e.pos));
 
-    // face the player
-    const wantQ=qLookAt(dir,[0,1,0]);
-    e.quat=qNorm([e.quat[0]+(wantQ[0]-e.quat[0])*Math.min(1,3*dt),
-                  e.quat[1]+(wantQ[1]-e.quat[1])*Math.min(1,3*dt),
-                  e.quat[2]+(wantQ[2]-e.quat[2])*Math.min(1,3*dt),
-                  e.quat[3]+(wantQ[3]-e.quat[3])*Math.min(1,3*dt)]);
+    // ---- state machine: pursue -> attack -> break (fly past) -> regroup ----
+    if(e.state==='PURSUE'){
+      if(dist<820 && align>0.9){ e.state='ATTACK'; e.t=0; }
+    } else if(e.state==='ATTACK'){
+      if(dist<150){ e.state='BREAK'; e.t=1.4+Math.random()*1.2; }
+      else if(dist>1300){ e.state='PURSUE'; }
+    } else if(e.state==='BREAK'){
+      if(e.t<=0){ e.state='REGROUP'; e.t=2.5; }
+    } else { // REGROUP
+      if(e.t<=0){ e.state = dist<900 ? 'ATTACK' : 'PURSUE'; }
+    }
 
-    // keep ~250u range, strafe otherwise
-    let move=V.scale(dir,1);
-    if(dist<200) move=V.scale(dir,-1);
-    else if(dist<300) move=[-dir[2],0,dir[0]];
-    const desired=V.scale(V.norm(move),e.speed);
-    e.vel=V.lerp(e.vel,desired,1-Math.exp(-1.5*dt));
+    // ---- desired heading ----
+    let desired;
+    if(e.state==='BREAK'){
+      desired=V.norm(V.add(heading,V.scale([-dir[2],0.18,dir[0]],0.5))); // arc away after the pass
+    } else if(e.state==='REGROUP'){
+      desired=toLead;
+    } else {
+      // pursue the intercept with a slight lateral offset (tailing curve)
+      desired=V.norm(V.add(toLead,V.scale([dir[2],0,-dir[0]],0.18)));
+    }
+    // separation: don't clump with other hostiles
+    for(const o of enemies){
+      if(o===e||!o.alive) continue;
+      const d=V.sub(e.pos,o.pos), dd=V.len(d);
+      if(dd<190 && dd>1e-3) desired=V.add(desired,V.scale(d,(190-dd)/190*1.5/dd));
+    }
+    if(dist<110 && dist>1e-3) desired=V.add(desired,V.scale(dir,-1.6)); // never ram the player
+    desired=V.add(desired,[0,Math.sin((e.pos[0]+e.pos[2])*0.01)*0.12,0]); // vertical spread
+    desired=V.norm(desired);
+
+    // ---- steer along an arc, keep speed ----
+    const newDir=steerDir(heading,desired,e.turnRate,dt);
+    e.fwdPrev=newDir;
+    e.vel=V.scale(newDir,e.speed);
     e.pos=V.add(e.pos,V.scale(e.vel,dt));
+
+    // ---- bank into the turn (proportional to the intended heading change) ----
+    const cross=V.cross(heading,desired);
+    const bank=Math.max(-1.0,Math.min(1.0,V.dot(cross,[0,1,0])*1.8));
+    e.bank += (bank-e.bank)*Math.min(1,6*dt);
+    e.quat=qMul(qLookAt(newDir,[0,1,0]),qAxisAngle([0,0,1],e.bank));
+
+    // engine trail
     if(Math.random()<dt*22){
-      const rear=V.add(e.pos,qRotate([0,0,6],e.quat));
-      spawnParticle(rear[0],rear[1],rear[2],e.vel[0]-dir[0]*14,e.vel[1]-dir[1]*14,e.vel[2]-dir[2]*14,0.25,1.0,0.4,0.3,3,0.9);
+      const rear=V.add(e.pos,qRotate([0,0,7],e.quat));
+      spawnParticle(rear[0],rear[1],rear[2],e.vel[0]*0.5,e.vel[1]*0.5,e.vel[2]*0.5,0.25,1.0,0.4,0.3,3,0.9);
     }
 
-    // fire when roughly aligned and in range
-    const fwd=shipForwardOf(e);
-    const aim=V.dot(fwd,dir);
-    if(dist<1100 && aim>0.985 && e.fireCd<=0 && ship.alive){
-      fireBolt('enemy',e);
-      e.fireCd=0.4+Math.random()*0.25;
-      laserSfx('enemy');
-    }
+    // ---- burst fire while the nose is on target ----
+    const aim=V.dot(shipForwardOf(e),dir);
+    if(dist<1000 && aim>0.985 && ship.alive){
+      if(e.fireCd<=0){
+        fireBolt('enemy',e); laserSfx('enemy');
+        e.burst++;
+        if(e.burst>=3){ e.burst=0; e.fireCd=0.7+Math.random()*0.5; }
+        else e.fireCd=0.12;
+      }
+    } else e.burst=0;
   }
   for(let i=enemies.length-1;i>=0;i--) if(!enemies[i].alive) enemies.splice(i,1);
 }
@@ -2868,6 +2944,26 @@ function groundHeight(x,z){
   for(const s of GROUND_SAMPLES){ const hh=surface.heightAt(x+s[0],z+s[1]); if(hh>h) h=hh; }
   return h;
 }
+// Ray-march the heightfield: returns distance from `origin` along `dir` to the
+// first terrain intersection (or maxDist if none).
+function raycastTerrain(origin,dir,maxDist){
+  if(!surface) return maxDist;
+  dir=V.norm(dir);
+  const at=t=>origin[1]+dir[1]*t - surface.heightAt(origin[0]+dir[0]*t, origin[2]+dir[2]*t);
+  if(at(0)<0) return 0;
+  let prev=0;
+  const steps=28;
+  for(let i=1;i<=steps;i++){
+    const t=maxDist*i/steps;
+    if(at(t)<0){
+      let a=prev,b=t;
+      for(let k=0;k<7;k++){ const m=(a+b)*0.5; if(at(m)<0) b=m; else a=m; }
+      return b;
+    }
+    prev=t;
+  }
+  return maxDist;
+}
 function tryLand(){
   if(game.state!==STATE.FLIGHT) return;
   const t=currentTarget();
@@ -2995,15 +3091,24 @@ function updateSurfaceCamera(dt){
   const tx = surface.aboard ? surface.shipPos[0] : player.pos[0];
   const ty = (surface.aboard ? surface.shipPos[1]+3 : player.pos[1]+3);
   const tz = surface.aboard ? surface.shipPos[2] : player.pos[2];
+  const focus=[tx,Math.max(ty,groundHeight(tx,tz)+1.5),tz];
   const cd=26, ch=13, yaw=surface.camYaw;
-  const desired=[tx-Math.sin(yaw)*cd, ty+ch, tz-Math.cos(yaw)*cd];
-  const gd=groundHeight(desired[0],desired[2]);       // keep the camera out of hills
-  if(desired[1]<gd+3.5) desired[1]=gd+3.5;
-  cam.smooth=V.lerp(cam.smooth,desired,1-Math.exp(-6*dt));
+  let desired=[focus[0]-Math.sin(yaw)*cd, focus[1]+ch, focus[2]-Math.cos(yaw)*cd];
+  // proper raycast: pull the camera in if terrain is between it and the player
+  const off=V.sub(desired,focus);
+  const len=V.len(off);
+  const hit=raycastTerrain(focus,off,len);
+  if(hit < len){
+    const k=Math.max(4,hit-1.2)/len;
+    desired=[focus[0]+off[0]*k, focus[1]+off[1]*k, focus[2]+off[2]*k];
+  }
+  const gd=groundHeight(desired[0],desired[2]);
+  if(desired[1]<gd+2.5) desired[1]=gd+2.5;
+  cam.smooth=V.lerp(cam.smooth,desired,1-Math.exp(-10*dt));
   const gc=groundHeight(cam.smooth[0],cam.smooth[2]);
-  if(cam.smooth[1]<gc+3.5) cam.smooth[1]=gc+3.5;
+  if(cam.smooth[1]<gc+2.5) cam.smooth[1]=gc+2.5;
   cam.pos=cam.smooth;
-  cam.view=m4LookAt(cam.pos,[tx,Math.max(ty,groundHeight(tx,tz)+1.5),tz],[0,1,0]);
+  cam.view=m4LookAt(cam.pos,focus,[0,1,0]);
 }
 function renderSurface(){
   if(!surface) return;
