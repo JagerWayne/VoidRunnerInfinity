@@ -3,7 +3,12 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.10 · LAYOUT (current)
+## 1.11 · COMBAT (current)
+- Reticle turns **white** when the target is in your rear hemisphere.
+- Enemy AI presses the attack on a **stationary player** (no more endless orbiting).
+- Enemies slow into hard turns and fire on the intercept.
+
+## 1.10 · LAYOUT
 - GALAXY button moved to the top.
 - Radar moved to the top centre.
 - HAIL / MINE / LAND grouped on the right side.
