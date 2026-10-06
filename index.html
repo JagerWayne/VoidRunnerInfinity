@@ -587,6 +587,108 @@ function drawBeam(VP,a,b,color){
   drawMesh(beamMesh,VP,color,1.0);
 }
 
+/* ----------------------------- PARTICLES (solid-colour VFX) -------------- */
+const PVS=`
+attribute vec3 aPos;
+attribute vec3 aCol;
+attribute float aSize;
+uniform mat4 uMVP;
+varying vec3 vCol;
+void main(){ vCol=aCol; gl_PointSize=aSize; gl_Position=uMVP*vec4(aPos,1.0); }`;
+const PFS=`
+precision mediump float;
+varying vec3 vCol;
+void main(){ gl_FragColor=vec4(vCol,1.0); }`;
+const pprog=(function(){
+  const pr=gl.createProgram();
+  gl.attachShader(pr,compile(gl.VERTEX_SHADER,PVS));
+  gl.attachShader(pr,compile(gl.FRAGMENT_SHADER,PFS));
+  gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  return pr;
+})();
+const PA_POS=gl.getAttribLocation(pprog,'aPos');
+const PA_COL=gl.getAttribLocation(pprog,'aCol');
+const PA_SIZE=gl.getAttribLocation(pprog,'aSize');
+const PU_MVP=gl.getUniformLocation(pprog,'uMVP');
+const MAX_PARTICLES=700;
+const particles=[];
+const ppos=new Float32Array(MAX_PARTICLES*7);
+const pbuf=(function(){
+  const b=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,b);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(MAX_PARTICLES*7),gl.DYNAMIC_DRAW);
+  return b;
+})();
+function spawnParticle(x,y,z,vx,vy,vz,life,r,g,b,size,drag){
+  if(particles.length>=MAX_PARTICLES) particles.shift();
+  particles.push({x,y,z,vx,vy,vz,life,maxLife:life,r,g,b,size,size0:size,drag:drag||0.9});
+}
+function spawnBurst(pos,n,speed,life,color,size,bias){
+  bias=bias||[0,0,0];
+  for(let i=0;i<n;i++){
+    const u=Math.random()*2-1, th=Math.random()*Math.PI*2, s2=Math.sqrt(1-u*u);
+    const sp=speed*(0.4+Math.random()*0.6);
+    spawnParticle(pos[0],pos[1],pos[2],
+      Math.cos(th)*s2*sp+bias[0], u*sp+bias[1], Math.sin(th)*s2*sp+bias[2],
+      life*(0.6+Math.random()*0.5), color[0],color[1],color[2],
+      size*(0.6+Math.random()*0.8), 0.86);
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.life-=dt;
+    if(p.life<=0){ particles.splice(i,1); continue; }
+    const d=Math.pow(p.drag,dt*60);
+    p.vx*=d; p.vy*=d; p.vz*=d;
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt;
+    p.size=p.size0*(p.life/p.maxLife);
+  }
+}
+function drawParticles(VP){
+  const n=particles.length; if(!n) return;
+  for(let i=0;i<n;i++){
+    const p=particles[i], o=i*7;
+    ppos[o]=p.x; ppos[o+1]=p.y; ppos[o+2]=p.z;
+    ppos[o+3]=p.r; ppos[o+4]=p.g; ppos[o+5]=p.b;
+    ppos[o+6]=Math.max(1,Math.min(46,p.size));
+  }
+  gl.useProgram(pprog);
+  gl.bindBuffer(gl.ARRAY_BUFFER,pbuf);
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,ppos.subarray(0,n*7));
+  const stride=7*4;
+  gl.vertexAttribPointer(PA_POS,3,gl.FLOAT,false,stride,0);
+  gl.vertexAttribPointer(PA_COL,3,gl.FLOAT,false,stride,12);
+  gl.vertexAttribPointer(PA_SIZE,1,gl.FLOAT,false,stride,24);
+  gl.enableVertexAttribArray(PA_POS);
+  gl.enableVertexAttribArray(PA_COL);
+  gl.enableVertexAttribArray(PA_SIZE);
+  gl.uniformMatrix4fv(PU_MVP,false,VP);
+  gl.drawArrays(gl.POINTS,0,n);
+}
+// Higher-level effect helpers (solid colours)
+const FX={
+  muzzle:(pos,dir,player)=>{
+    const col=player?[0.6,1.0,1.0]:[1.0,0.5,0.4];
+    spawnBurst(pos,player?4:3,50,0.16,col,3,[dir[0]*90,dir[1]*90,dir[2]*90]);
+  },
+  impact:(pos,shielded)=>{
+    spawnBurst(pos,shielded?9:12,90,shielded?0.35:0.28,shielded?[0.5,0.95,1.0]:[1.0,0.6,0.2],shielded?3:3.5);
+  },
+  shieldFlare:(pos,scale)=>{
+    spawnBurst(pos,14,120,0.4,[0.45,0.9,1.0],4*(scale||1));
+  },
+  explosion:(pos,scale,color)=>{
+    spawnBurst(pos,Math.round(24*(scale||1)),200*(scale||1),0.7,color||[1.0,0.5,0.15],5*(scale||1));
+    spawnBurst(pos,Math.round(8*(scale||1)),70,1.1,[1.0,0.95,0.7],8*(scale||1));
+    spawnBurst(pos,Math.round(6*(scale||1)),260,0.5,[0.9,0.95,1.0],3*(scale||1));
+  },
+  sparks:(pos,color,n,life,speed,size)=>{
+    spawnBurst(pos,n||6,speed||70,life||0.3,color||[1,0.8,0.3],size||3);
+  },
+};
+
 /* ----------------------------- VIEWPORT ---------------------------------- */
 let vw=1,vh=1,dpr=1;
 function resize(){
@@ -862,6 +964,10 @@ function updateTraders(dt){
       face=V.len(t.vel)>1?V.norm(t.vel):V.norm(V.sub(ship.pos,t.pos));
     }
     t.pos=V.add(t.pos,V.scale(t.vel,dt));
+    if(Math.random()<dt*16){
+      const rear=V.add(t.pos,qRotate([0,0,6],t.quat));
+      spawnParticle(rear[0],rear[1],rear[2],t.vel[0]*0.6,t.vel[1]*0.6,t.vel[2]*0.6,0.3,0.95,0.8,0.35,3,0.9);
+    }
     const wantQ=qLookAt(face,[0,1,0]);
     t.quat=qNorm([t.quat[0]+(wantQ[0]-t.quat[0])*Math.min(1,2*dt),
                   t.quat[1]+(wantQ[1]-t.quat[1])*Math.min(1,2*dt),
@@ -876,6 +982,7 @@ function damageTrader(tr,dmg){
   else tr.hull-=dmg;
   if(tr.hull<=0){
     tr.alive=false;
+    FX.explosion(tr.pos,1.7,[1.0,0.8,0.3]);
     let salvaged=0;
     for(const id in tr.stock){
       if(salvaged>=3) break;
@@ -1141,6 +1248,15 @@ function updateShip(dt){
   ship.pos=V.add(ship.pos,V.scale(ship.vel,dt));
   collideShip(dt);
 
+  // engine exhaust trail
+  if(Math.random()<dt*70){
+    const rear=V.add(ship.pos,qRotate([0,0,6],ship.quat));
+    const col=boosting?[1.0,0.6,0.25]:[0.4,0.85,1.0];
+    spawnParticle(rear[0]+(Math.random()-0.5)*0.8,rear[1]+(Math.random()-0.5)*0.8,rear[2]+(Math.random()-0.5)*0.8,
+      ship.vel[0]-fwd[0]*18,ship.vel[1]-fwd[1]*18,ship.vel[2]-fwd[2]*18,
+      0.28,col[0],col[1],col[2],boosting?5:3.2,0.9);
+  }
+
   // passive fuel scooping (prevents being permanently stranded between systems)
   game.fuel=Math.min(100,game.fuel+0.35*dt);
 
@@ -1180,9 +1296,11 @@ function fireBolt(team,src){
     team:team,
     color: team==='player'?[0.4,1.0,1.0]:[1.0,0.35,0.4],
   });
+  FX.muzzle(V.add(origin,V.scale(dir,2)),dir,team==='player');
 }
 function shipForwardOf(e){return qRotate([0,0,-1],e.quat);}
 
+function segPoint(p0,p1,t){ return V.add(p0,V.scale(V.sub(p1,p0),t)); }
 function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const p=projectiles[i];
@@ -1195,27 +1313,36 @@ function updateProjectiles(dt){
     if(!dead && p.team==='player'){
       for(const e of enemies){
         if(!e.alive) continue;
-        if(raySphere(p0,p1,e.pos,e.radius)>=0){ damageEnemy(e,COMBAT.boltDmg); dead=true; break; }
+        const t=raySphere(p0,p1,e.pos,e.radius);
+        if(t>=0){
+          const hp=segPoint(p0,p1,t);
+          FX.impact(hp,e.shield>0);
+          damageEnemy(e,COMBAT.boltDmg); dead=true; break;
+        }
       }
       if(!dead){
         for(const tr of traders){
           if(!tr.alive) continue;
-          if(raySphere(p0,p1,tr.pos,tr.radius)>=0){ damageTrader(tr,COMBAT.boltDmg); dead=true; break; }
+          const t=raySphere(p0,p1,tr.pos,tr.radius);
+          if(t>=0){ const hp=segPoint(p0,p1,t); FX.impact(hp,tr.shield>0); damageTrader(tr,COMBAT.boltDmg); dead=true; break; }
         }
       }
     }
     if(!dead && p.team==='enemy' && ship.alive){
-      if(raySphere(p0,p1,ship.pos,ship.radius)>=0){
-        damagePlayer(COMBAT.boltDmg); dead=true;
-      }
+      const t=raySphere(p0,p1,ship.pos,ship.radius);
+      if(t>=0){ damagePlayer(COMBAT.boltDmg); dead=true; }
     }
     // environment blocks shots
     if(!dead){
       for(const a of system.asteroids){
-        if(raySphere(p0,p1,a.pos,a.r)>=0){dead=true;break;}
+        const t=raySphere(p0,p1,a.pos,a.r);
+        if(t>=0){ const hp=segPoint(p0,p1,t); FX.sparks(hp,[0.7,0.7,0.72],5,0.25,60,3); dead=true; break; }
       }
     }
-    if(!dead && system.station && raySphere(p0,p1,system.station.pos,24)>=0) dead=true;
+    if(!dead && system.station){
+      const t=raySphere(p0,p1,system.station.pos,24);
+      if(t>=0){ const hp=segPoint(p0,p1,t); FX.sparks(hp,[0.55,0.95,0.8],5,0.25,60,3); dead=true; }
+    }
 
     if(dead) projectiles.splice(i,1);
   }
@@ -1223,9 +1350,11 @@ function updateProjectiles(dt){
 }
 
 function damagePlayer(dmg){
+  const shielded=ship.shield>0;
   ship.hitT=1.5;
   if(ship.shield>0){ship.shield-=dmg; if(ship.shield<0){ship.hull+=ship.shield;ship.shield=0;}}
   else ship.hull-=dmg;
+  if(shielded) FX.shieldFlare(ship.pos,1); else FX.impact(ship.pos,false);
   blip(180,0.12,'square'); vibrate(28);
 }
 function damageEnemy(e,dmg){
@@ -1235,10 +1364,11 @@ function damageEnemy(e,dmg){
   else e.hull-=dmg;
   if(e.hull<=0){
     e.alive=false;
+    FX.explosion(e.pos,1.4,[1.0,0.45,0.15]);
     const bounty=380+wave*60;
     game.credits+=bounty;
     toast('BOUNTY CLAIMED  +'+bounty+' CR');
-    blip(260,0.5,'triangle'); vibrate(60);
+    blip(260,0.5,'triangle'); vibrate([40,30,60]);
     if(game.targetId===e.id) game.targetId=null;
     trackBounty();
     scheduleEnemyRespawn();
@@ -1283,6 +1413,10 @@ function updateEnemies(dt){
     const desired=V.scale(V.norm(move),e.speed);
     e.vel=V.lerp(e.vel,desired,1-Math.exp(-1.5*dt));
     e.pos=V.add(e.pos,V.scale(e.vel,dt));
+    if(Math.random()<dt*22){
+      const rear=V.add(e.pos,qRotate([0,0,6],e.quat));
+      spawnParticle(rear[0],rear[1],rear[2],e.vel[0]-dir[0]*14,e.vel[1]-dir[1]*14,e.vel[2]-dir[2]*14,0.25,1.0,0.4,0.3,3,0.9);
+    }
 
     // fire when roughly aligned and in range
     const fwd=shipForwardOf(e);
@@ -1310,6 +1444,13 @@ function updateMining(dt){
   if(dist>MINING_RANGE || align<0.80 || a.amount<=0) return;
   ship.miningFrom=V.add(ship.pos,V.scale(shipForward(),6));
   miningBeam=a.pos;
+  if(Math.random()<dt*30){
+    const toShip=V.norm(V.sub(ship.pos,a.pos));
+    const sp=V.add(a.pos,V.scale(toShip,a.r));
+    const col = a.com==='ice'?[0.6,0.85,1.0] : a.com==='gems'?[1.0,0.9,0.6]
+              : a.com==='rare'?[0.85,0.55,1.0] : a.com==='metals'?[0.9,0.85,0.7] : [1.0,0.65,0.25];
+    FX.sparks(sp,col,3,0.3,55,2.5);
+  }
   if(cargoLoad()>=game.cargoMax){ toast('CARGO HOLD FULL'); return; }
   ship.heat=Math.min(100,ship.heat+9*dt);
   game.mineProgress+=dt;
@@ -1324,6 +1465,7 @@ function updateMining(dt){
 }
 function fractureAsteroid(a){
   const idx=system.asteroids.indexOf(a); if(idx>=0) system.asteroids.splice(idx,1);
+  FX.explosion(a.pos,Math.min(2,0.6+a.r/90),[0.85,0.82,0.78]);
   toast(a.resName+' DEPOSIT DEPLETED');
   for(let k=0;k<3;k++){
     system.asteroids.push({id:'d'+((Math.random()*1e9)|0),
@@ -1360,52 +1502,67 @@ function updateCamera(dt){
 }
 
 /* ----------------------------- RENDER ------------------------------------ */
+function asteroidColor(a){
+  if(!a.com) return [0.5,0.52,0.56];
+  if(a.com==='ice') return [0.5,0.8,0.98];
+  if(a.com==='metals') return [0.85,0.76,0.55];
+  if(a.com==='rare') return [0.72,0.45,0.95];
+  if(a.com==='gems') return [0.98,0.9,0.65];
+  return [0.66,0.6,0.52]; // ore
+}
 function render(){
   gl.clearColor(0.008,0.012,0.03,1);
   gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); // solid colours, no additive wash
+  gl.useProgram(prog);
 
   const proj=m4Perspective(Math.PI/3,vw/vh,0.5,200000);
   const VP=m4Mul(proj,cam.view);
   cam.VP=VP;
 
-  // starfield (effectively at infinity; rotates with camera)
-  drawMesh(MESHes.stars,VP,[0.6,0.75,0.95],0.85,2);
+  // starfield
+  drawMesh(MESHes.stars,VP,[0.78,0.84,1.0],1.0,2);
 
   // sun (mesh built at r=600; colour by spectral class)
-  drawMesh(MESHes.sun,m4Mul(VP,m4Compose(system.sun.pos,qIdent(),system.sun.r/600)),system.sun.color,0.92);
+  drawMesh(MESHes.sun,m4Mul(VP,m4Compose(system.sun.pos,qIdent(),system.sun.r/600)),system.sun.color,1.0);
 
   // planets (mesh built at r=1400)
   for(const p of system.planets){
-    drawMesh(MESHes.planet,m4Mul(VP,m4Compose(p.pos,qIdent(),p.r/1400)),p.color,p.alpha);
+    drawMesh(MESHes.planet,m4Mul(VP,m4Compose(p.pos,qIdent(),p.r/1400)),p.color,1.0);
   }
 
-  // asteroids (mesh built at r=70, scaled to the collision radius)
+  // asteroids (solid, tinted by resource; brighter near depletion = empty)
   for(const a of system.asteroids){
-    drawMesh(MESHes.asteroid,m4Mul(VP,m4Compose(a.pos,a.quat,a.r/70)),[0.6,0.65,0.7],0.35);
+    let col=asteroidColor(a);
+    if(a.amount<=2 && !a.depleted) col=[col[0]*0.55,col[1]*0.55,col[2]*0.55];
+    drawMesh(MESHes.asteroid,m4Mul(VP,m4Compose(a.pos,a.quat,a.r/70)),col,1.0);
   }
 
   // station (green = trading outpost, amber = derelict)
   if(system.station){
     const stationM=m4Mul(VP,m4Compose(system.station.pos,system.station.quat,1));
-    const col = system.station.market ? [0.4,1.0,0.85] : [1.0,0.6,0.25];
-    drawMesh(MESHes.station,stationM,col,0.95);
+    const col = system.station.market ? [0.35,1.0,0.8] : [1.0,0.55,0.2];
+    drawMesh(MESHes.station,stationM,col,1.0);
   }
 
-  // hostiles (amber when targeted)
+  // hostiles (solid red, amber when targeted, white flash when hit)
   for(const e of enemies){
     if(!e.alive) continue;
     const isTgt = game.targetId===e.id;
-    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(e.pos,e.quat,1.2)),isTgt?[1.0,0.62,0.2]:[1.0,0.35,0.4],0.95);
+    let col = isTgt?[1.0,0.62,0.2]:[1.0,0.3,0.35];
+    if(e.hitT>1.1) col=[1.0,1.0,1.0];
+    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(e.pos,e.quat,1.2)),col,1.0);
   }
 
-  // traders (yellow haulers)
+  // traders (solid amber haulers)
   for(const tr of traders){
     if(!tr.alive) continue;
     const isTgt = game.targetId===tr.id;
-    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(tr.pos,tr.quat,1.6)),isTgt?[0.6,1.0,0.4]:[0.95,0.85,0.3],0.9);
+    let col = isTgt?[0.6,1.0,0.4]:[0.95,0.8,0.25];
+    if(tr.hitT>1.1) col=[1.0,1.0,1.0];
+    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(tr.pos,tr.quat,1.6)),col,1.0);
   }
 
   // mining beam
@@ -1413,15 +1570,18 @@ function render(){
     drawBeam(VP,ship.miningFrom,miningBeam,[1.0,0.55,0.15]);
   }
 
-  // projectiles
+  // projectiles (solid bolts)
   for(const p of projectiles){
-    drawMesh(MESHes.bolt,m4Mul(VP,m4Compose(p.pos,qIdent(),1)),p.color,1.0,7);
+    drawMesh(MESHes.bolt,m4Mul(VP,m4Compose(p.pos,qIdent(),1)),p.color,1.0,8);
   }
 
   // ship (hidden while destroyed)
   if(ship.alive){
     drawMesh(MESHes.ship,m4Mul(VP,m4Compose(ship.pos,ship.quat,1)),[0.5,1.0,1.0],1.0);
   }
+
+  // particles last (solid coloured points)
+  drawParticles(VP);
 }
 
 /* ----------------------------- HUD --------------------------------------- */
@@ -2174,6 +2334,7 @@ function frame(now){
   if(game.state===STATE.FLIGHT||game.state===STATE.DOCKING||game.state===STATE.DEAD){
     buildContacts();
     updateCamera(dt);
+    updateParticles(dt);
     render();
     updateHUD(dt);
     drawRadar();
