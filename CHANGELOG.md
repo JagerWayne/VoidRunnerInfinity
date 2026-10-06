@@ -3,7 +3,13 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.9 · UI OVERHAUL (current)
+## 1.10 · LAYOUT (current)
+- GALAXY button moved to the top.
+- Radar moved to the top centre.
+- HAIL / MINE / LAND grouped on the right side.
+- Rearranged the flight button deck.
+
+## 1.9 · UI OVERHAUL
 - Central per-state UI logic (space / surface / overlays).
 - Buttons hide when unusable (HAIL / MINE / LAND / ENTER SHIP).
 - Added **EXIT SHIP** on the surface (LAUNCH or EVA on foot).
