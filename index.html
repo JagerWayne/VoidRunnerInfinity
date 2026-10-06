@@ -236,11 +236,11 @@
   #sfcPanel { display:none; position:absolute; top:8px; left:8px; right:140px; text-align:left; }
   #hud.surface-mode #sfcPanel { display:block; }
   #sfcPanel .val { font-size:11px; }
-  #sfcMapWrap { display:none; position:absolute; top:8px; right:8px; width:126px; height:126px;
-    border:1px solid rgba(90,220,255,0.55); border-radius:8px; overflow:hidden;
-    background:rgba(4,12,20,0.6); box-shadow:0 0 12px rgba(0,150,220,0.25); }
+  #sfcMapWrap { display:none; position:absolute; top:8px; right:8px; width:132px; height:132px;
+    border:2px solid rgba(90,220,255,0.6); border-radius:50%; overflow:hidden;
+    background:rgba(4,12,20,0.6); box-shadow:0 0 14px rgba(0,150,220,0.35); }
   #hud.surface-mode #sfcMapWrap { display:block; }
-  #sfcMap { width:100%; height:100%; display:block; }
+  #sfcMap { width:100%; height:100%; display:block; border-radius:50%; }
   #sfcButtons { position:absolute; right:10px; bottom:14px; display:none; flex-direction:column;
     gap:8px; align-items:flex-end; }
   #hud.surface-mode #sfcButtons { display:flex; }
@@ -348,11 +348,12 @@
   </div>
 
   <div id="sfcButtons">
-    <div style="display:flex;gap:8px">
+    <div id="sfcMoveRow" style="display:flex;gap:8px">
       <button class="btn small" id="sprintBtn">RUN</button>
       <button class="btn small" id="jumpBtn">JUMP</button>
     </div>
     <button class="btn" id="sfcActionBtn">ENTER SHIP</button>
+    <button class="btn" id="sfcExitBtn">EXIT SHIP</button>
   </div>
 
   <button id="landBtn">LAND</button>
@@ -362,7 +363,7 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06j &middot; FIXES</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06k &middot; UI</div>
   <button id="startBtn">TAP TO ENGAGE</button>
   <button id="changelogBtn">CHANGELOG</button>
   <div class="hint" style="max-width:340px;text-align:left">
@@ -1398,6 +1399,7 @@ bindHold('mineBtn',()=>input.mine=true,()=>input.mine=false);
 bindTap('hailBtn',()=>hailTarget());
 document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();input.jump=true;},{passive:false});
 document.getElementById('sfcActionBtn').addEventListener('pointerdown',e=>{e.preventDefault();sfcAction();},{passive:false});
+document.getElementById('sfcExitBtn').addEventListener('pointerdown',e=>{e.preventDefault();sfcExitShip();},{passive:false});
 document.getElementById('landBtn').addEventListener('pointerdown',e=>{e.preventDefault();tryLand();},{passive:false});
 (function(){
   const b=document.getElementById('sprintBtn');
@@ -2056,7 +2058,9 @@ function updateHUD(dt){
   setText('shieldVal',Math.round(ship.shield)+'%');
   setText('thrVal',Math.round(ship.throttle*100)+'%');
   const t=currentTarget();
+  const tp=$('targetPanel');
   if(t){
+    if(tp) tp.style.display='';
     setText('tgtName',t.name);
     setText('tgtType',t.kind);
     setText('tgtDist',(V.len(V.sub(t.pos,ship.pos))/1000).toFixed(2)+'km');
@@ -2073,6 +2077,7 @@ function updateHUD(dt){
     else if(t.kind==='TRADER' && t.ref) extra='CARGO '+traderCargo(t.ref)+'u \u00b7 '+t.ref.credits.toLocaleString()+' CR';
     setText('tgtExtra',extra);
   } else {
+    if(tp) tp.style.display='none';
     setText('tgtName','---'); setText('tgtType','---');
     setText('tgtDist','---'); setText('tgtSpd','0'); setText('tgtLock','');
     setText('tgtExtra','');
@@ -2080,7 +2085,6 @@ function updateHUD(dt){
   }
   updateContractHud();
   checkContracts();
-  updateFlightButtons();
   $('thrFill').style.height=(ship.throttle*100)+'%';
 }
 function updateContractHud(){
@@ -2835,7 +2839,15 @@ $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJ
 
 /* ----------------------------- CHANGELOG --------------------------------- */
 const CHANGELOG=[
-  {v:'1.8 \u00b7 FIXES (current)', items:[
+  {v:'1.9 \u00b7 UI OVERHAUL (current)', items:[
+    'Central per-state UI logic (space / surface / overlays)',
+    'Buttons hide when unusable (HAIL / MINE / LAND / ENTER SHIP)',
+    'Added EXIT SHIP on the surface (LAUNCH or EVA on foot)',
+    'Target panel auto-hides when there is no target',
+    'Circular surface minimap',
+    'Rounder, less peaky planet terrain',
+  ]},
+  {v:'1.8 \u00b7 FIXES', items:[
     'Fixed the ENGAGE JUMP button (duplicate element id)',
     'Richer planetary colour + per-channel terrain texture',
     'Enemies no longer bullet sponges (~8 hits to kill)',
@@ -2904,16 +2916,17 @@ function makeNoise(seed){
     return (v00*(1-u)+v10*u)*(1-v)+(v01*(1-u)+v11*u)*v;
   };
 }
+// Lower amplitudes => smooth, rounded, rolling terrain instead of sharp peaks.
 const BIOMES=[
-  {name:'DESERT',   amp:110, sky:[0.66,0.54,0.32], low:[0.62,0.40,0.16], mid:[0.88,0.66,0.30], high:[0.99,0.88,0.60]},
-  {name:'ICE',      amp:130, sky:[0.60,0.78,0.94], low:[0.38,0.66,0.88], mid:[0.72,0.88,0.99], high:[1.00,1.00,1.00]},
-  {name:'FOREST',   amp:150, sky:[0.30,0.46,0.36], low:[0.10,0.30,0.13], mid:[0.22,0.54,0.20], high:[0.60,0.66,0.40]},
-  {name:'VOLCANIC', amp:230, sky:[0.34,0.12,0.10], low:[0.48,0.10,0.05], mid:[0.24,0.14,0.14], high:[0.70,0.30,0.14]},
-  {name:'BARREN',   amp:120, sky:[0.14,0.14,0.19], low:[0.36,0.30,0.28], mid:[0.58,0.50,0.46], high:[0.86,0.80,0.76]},
-  {name:'OCEANIC',  amp:90,  sky:[0.28,0.56,0.72], low:[0.08,0.34,0.54], mid:[0.20,0.58,0.68], high:[0.62,0.86,0.82]},
-  {name:'CRIMSON',  amp:160, sky:[0.44,0.20,0.20], low:[0.44,0.13,0.13], mid:[0.70,0.27,0.22], high:[0.92,0.62,0.50]},
-  {name:'TOXIC',    amp:140, sky:[0.34,0.42,0.16], low:[0.30,0.42,0.09], mid:[0.56,0.66,0.16], high:[0.84,0.88,0.38]},
-  {name:'TUNDRA',   amp:125, sky:[0.40,0.40,0.58], low:[0.34,0.32,0.50], mid:[0.60,0.58,0.76], high:[0.90,0.92,0.98]},
+  {name:'DESERT',   amp:70,  sky:[0.66,0.54,0.32], low:[0.62,0.40,0.16], mid:[0.88,0.66,0.30], high:[0.99,0.88,0.60]},
+  {name:'ICE',      amp:80,  sky:[0.60,0.78,0.94], low:[0.38,0.66,0.88], mid:[0.72,0.88,0.99], high:[1.00,1.00,1.00]},
+  {name:'FOREST',   amp:92,  sky:[0.30,0.46,0.36], low:[0.10,0.30,0.13], mid:[0.22,0.54,0.20], high:[0.60,0.66,0.40]},
+  {name:'VOLCANIC', amp:140, sky:[0.34,0.12,0.10], low:[0.48,0.10,0.05], mid:[0.24,0.14,0.14], high:[0.70,0.30,0.14]},
+  {name:'BARREN',   amp:76,  sky:[0.14,0.14,0.19], low:[0.36,0.30,0.28], mid:[0.58,0.50,0.46], high:[0.86,0.80,0.76]},
+  {name:'OCEANIC',  amp:56,  sky:[0.28,0.56,0.72], low:[0.08,0.34,0.54], mid:[0.20,0.58,0.68], high:[0.62,0.86,0.82]},
+  {name:'CRIMSON',  amp:100, sky:[0.44,0.20,0.20], low:[0.44,0.13,0.13], mid:[0.70,0.27,0.22], high:[0.92,0.62,0.50]},
+  {name:'TOXIC',    amp:88,  sky:[0.34,0.42,0.16], low:[0.30,0.42,0.09], mid:[0.56,0.66,0.16], high:[0.84,0.88,0.38]},
+  {name:'TUNDRA',   amp:78,  sky:[0.40,0.40,0.58], low:[0.34,0.32,0.50], mid:[0.60,0.58,0.76], high:[0.90,0.92,0.98]},
 ];
 function lerpAngle(a,b,t){ let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return a+d*t; }
 
@@ -2955,7 +2968,7 @@ function buildSurface(planet, planetIdx){
     const cx=(frng()*2-1)*(SURF.HALF-260);
     const cz=(frng()*2-1)*(SURF.HALF-260);
     if(Math.hypot(cx,cz)<140) continue;
-    const cr=90+frng()*200, cd=14+frng()*34, rim=4+frng()*9;
+    const cr=90+frng()*180, cd=10+frng()*22, rim=3+frng()*6;
     craters.push({cx,cz,cr,cd,rim});
   }
   // ---- winding canyon / ravine ----
@@ -2973,7 +2986,7 @@ function buildSurface(planet, planetIdx){
       canyon.push([px,pz]);
     }
   }
-  const CANYON_HW=18, CANYON_DEPTH=30;
+  const CANYON_HW=18, CANYON_DEPTH=20;
   function distToSeg(px,pz,ax,az,bx,bz){
     const dx=bx-ax, dz=bz-az, L2=dx*dx+dz*dz;
     let t=L2>0?((px-ax)*dx+(pz-az)*dz)/L2:0;
@@ -2981,10 +2994,10 @@ function buildSurface(planet, planetIdx){
     return Math.hypot(px-(ax+dx*t), pz-(az+dz*t));
   }
   const heightAt=(x,z)=>{
-    let a=1,f=0.006,s=0,n=0;
-    for(let o=0;o<4;o++){ s+=a*noise(x*f,z*f); n+=a; a*=0.5; f*=2; }
+    let a=1,f=0.005,s=0,n=0;
+    for(let o=0;o<3;o++){ s+=a*noise(x*f,z*f); n+=a; a*=0.5; f*=2; } // fewer octaves => rolling
     let h=(s/n-0.5)*biome.amp;
-    h+=(noise(x*0.02+31.7,z*0.02+11.3)-0.5)*biome.amp*0.25;
+    h+=(noise(x*0.02+31.7,z*0.02+11.3)-0.5)*biome.amp*0.16;
     for(const c of craters){
       const d=Math.hypot(x-c.cx,z-c.cz);
       if(d<c.cr){
@@ -3222,20 +3235,38 @@ function collectPOI(p){
   if(surface.collected>=surface.pois.length){ game.credits+=600; toast('SURFACE SURVEY COMPLETE +600 CR'); }
   saveGame();
 }
+function sfcExitShip(){
+  if(!surface || !surface.aboard) return;
+  surface.aboard=false;
+  const off=qRotate([0,0,7],surface.shipQuat);       // step out in front of the hull
+  player.pos[0]=surface.shipPos[0]+off[0];
+  player.pos[2]=surface.shipPos[2]+off[2];
+  player.pos[1]=groundHeight(player.pos[0],player.pos[2]);
+  player.vy=0; player.onGround=true;
+  input.sprint=false; input.jump=false;
+  toast('EVA \u2014 ON FOOT');
+  blip(300,0.2,'square');
+  updateSfcUI();
+}
 function updateSfcUI(){
-  const act=$('sfcActionBtn'), hint=$('hintBar');
-  if(!act||!surface) return;
+  if(!surface) return;
+  const act=$('sfcActionBtn'), exit=$('sfcExitBtn'), move=$('sfcMoveRow'), hint=$('hintBar');
   setText('sfcSamples', surface.collected+'/'+surface.pois.length);
   setText('sfcCr', game.credits.toLocaleString());
   setText('sfcHold', cargoLoad()+'/'+game.cargoMax);
   if(surface.aboard){
-    act.style.display=''; act.textContent='LAUNCH'; act.classList.add('on');
-    if(hint){ hint.textContent='PRESS LAUNCH TO RETURN TO ORBIT'; hint.classList.add('show'); }
+    // In the ship on the ground: only LAUNCH or EXIT are relevant.
+    if(move) move.style.display='none';
+    if(act){ act.style.display=''; act.textContent='LAUNCH'; act.classList.add('on'); }
+    if(exit) exit.style.display='';
+    if(hint){ hint.textContent='LAUNCH TO ORBIT, OR EXIT TO EXPLORE'; hint.classList.add('show'); }
   } else {
+    // On foot: RUN/JUMP always; ENTER SHIP only when close enough.
+    if(move) move.style.display='flex';
+    if(exit) exit.style.display='none';
     const dx=surface.shipPos[0]-player.pos[0], dz=surface.shipPos[2]-player.pos[2];
     const d=Math.hypot(dx,dz);
-    if(d<14){ act.style.display=''; act.textContent='ENTER SHIP'; act.classList.add('on'); }
-    else act.style.display='none';
+    if(act){ if(d<14){ act.style.display=''; act.textContent='ENTER SHIP'; act.classList.add('on'); } else act.style.display='none'; }
     if(hint){
       hint.textContent = d<14 ? 'PRESS ENTER SHIP TO BOARD'
         : ('SHIP '+Math.round(d)+'m AWAY \u2014 FOLLOW THE MINIMAP');
@@ -3372,6 +3403,16 @@ function updateFlightButtons(){
   else if(trader) h='PRESS HAIL TO TRADE';
   if(hint){ hint.textContent=h; hint.classList.toggle('show', !!h); }
 }
+// Single source of truth for which HUD/controls are visible per state.
+function updateUI(){
+  const st=game.state;
+  const surf=st===STATE.SURFACE;
+  const hud=$('hud'); if(hud) hud.classList.toggle('surface-mode', surf);
+  const deck=$('buttons'); if(deck) deck.style.display=(st===STATE.FLIGHT)?'':'none';
+  if(st===STATE.FLIGHT){ updateFlightButtons(); }
+  else { const land=$('landBtn'); if(land) land.classList.remove('show'); }
+  if(surf) updateSfcUI();
+}
 
 /* ----------------------------- LOOP -------------------------------------- */
 let last=0;
@@ -3412,6 +3453,7 @@ function frame(now){
     renderSurface();
     drawMinimap();
   }
+  updateUI();
 }
 function updateAudio(){
   if(!engineGain) return;

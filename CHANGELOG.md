@@ -3,7 +3,15 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.8 · FIXES (current)
+## 1.9 · UI OVERHAUL (current)
+- Central per-state UI logic (space / surface / overlays).
+- Buttons hide when unusable (HAIL / MINE / LAND / ENTER SHIP).
+- Added **EXIT SHIP** on the surface (LAUNCH or EVA on foot).
+- Target panel auto-hides when there is no target.
+- Circular surface **minimap**.
+- Rounder, less peaky planet terrain.
+
+## 1.8 · FIXES
 - Fixed the **ENGAGE JUMP** button (duplicate element id shadowed the handler).
 - Richer planetary **colour** + per-channel terrain **texture**.
 - Enemies are **no longer bullet sponges** (~8 hits to kill).
