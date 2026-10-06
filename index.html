@@ -344,7 +344,7 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06g &middot; MOVE FIX</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06h &middot; SURFACE FIX</div>
   <button id="startBtn">TAP TO ENGAGE</button>
   <div class="hint" style="max-width:340px;text-align:left">
     <b>HOW TO PLAY</b><br>
@@ -2816,7 +2816,7 @@ function toast(msg){
 }
 
 /* ============================ PLANET SURFACE ============================= */
-const SURF={HALF:1600,STEP:50};
+const SURF={HALF:1100,STEP:40};   // compact 2200x2200 patch; finer 40u grid
 const LAND_ALT=1500;
 const WALK_SPEED=42, GRAVITY=72, JUMP_V=36;
 const player={pos:[0,0,0],vy:0,yaw:0,onGround:true};
@@ -2864,6 +2864,17 @@ function buildSurface(planet, planetIdx){
     const y=heightAt(x,z); H[i][j]=y; if(y<hmin)hmin=y; if(y>hmax)hmax=y;
   }}
   const span=Math.max(1,hmax-hmin);
+  // Height of the RENDERED mesh (barycentric over the two triangles per cell),
+  // so collision matches exactly what is drawn -> no clipping.
+  const ground=(x,z)=>{
+    const fx=(x+SURF.HALF)/SURF.STEP, fz=(z+SURF.HALF)/SURF.STEP;
+    let i=Math.floor(fx), j=Math.floor(fz);
+    i=i<0?0:i>N-1?N-1:i; j=j<0?0:j>N-1?N-1:j;
+    let u=fx-i, v=fz-j; u=u<0?0:u>1?1:u; v=v<0?0:v>1?1:v;
+    const h00=H[i][j], h10=H[i+1][j], h01=H[i][j+1], h11=H[i+1][j+1];
+    return u>v ? h00 + u*(h10-h00) + v*(h11-h10)
+               : h00 + v*(h01-h00) + u*(h11-h01);
+  };
   const colFor=(y,slope)=>{
     const t=(y-hmin)/span;
     const c = t<0.4?biome.low : t<0.72?biome.mid : biome.high;
@@ -2898,11 +2909,11 @@ function buildSurface(planet, planetIdx){
     else if(r<0.66) type='probe';
     else if(r<0.86) type='camp';
     else type='ruins';
-    pois.push({id:'poi'+k,x:px,z:pz,y:heightAt(px,pz),type,com,collected:false});
+    pois.push({id:'poi'+k,x:px,z:pz,y:ground(px,pz),type,com,collected:false});
   }
-  const s={planet,planetIdx,seed,biome,heightAt,H,N,mesh:makeTerrainMesh(arr),
+  const s={planet,planetIdx,seed,biome,heightAt,ground,H,N,mesh:makeTerrainMesh(arr),
     hmin,hspan:span,pois,collected:0,camYaw:Math.PI,aboard:false,
-    shipPos:[0,heightAt(0,0),0],shipQuat:qAxisAngle([0,1,0],0.6)};
+    shipPos:[0,ground(0,0),0],shipQuat:qAxisAngle([0,1,0],0.6)};
   s.mapCanvas=buildTerrainMap(s);
   return s;
 }
@@ -2940,8 +2951,8 @@ const GROUND_SAMPLES=(function(){
 })();
 function groundHeight(x,z){
   if(!surface) return 0;
-  let h=surface.heightAt(x,z);
-  for(const s of GROUND_SAMPLES){ const hh=surface.heightAt(x+s[0],z+s[1]); if(hh>h) h=hh; }
+  let h=surface.ground(x,z);                       // match the rendered mesh exactly
+  for(const s of GROUND_SAMPLES){ const hh=surface.ground(x+s[0],z+s[1]); if(hh>h) h=hh; }
   return h;
 }
 // Ray-march the heightfield: returns distance from `origin` along `dir` to the
@@ -2949,7 +2960,7 @@ function groundHeight(x,z){
 function raycastTerrain(origin,dir,maxDist){
   if(!surface) return maxDist;
   dir=V.norm(dir);
-  const at=t=>origin[1]+dir[1]*t - surface.heightAt(origin[0]+dir[0]*t, origin[2]+dir[2]*t);
+  const at=t=>origin[1]+dir[1]*t - surface.ground(origin[0]+dir[0]*t, origin[2]+dir[2]*t);
   if(at(0)<0) return 0;
   let prev=0;
   const steps=28;
