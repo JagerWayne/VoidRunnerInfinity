@@ -3,7 +3,11 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.13 · HUD II (current)
+## 1.14 · CARGO (current)
+- Cargo hold is **clickable** and opens a contents screen.
+- **Jettison** cargo in space (drop one or dump the whole stack).
+
+## 1.13 · HUD II
 - **GALAXY** button moved on top of the radar.
 - **TARGET LOCK** (was Locate) holds the nose on the target until disengaged.
 - **OPTIONS** screen: compact HUD, HUD opacity, button size.
