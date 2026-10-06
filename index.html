@@ -330,7 +330,7 @@
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
-  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06 &middot; SURFACE UPDATE</div>
+  <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06c &middot; SHIP + SFX</div>
   <button id="startBtn">TAP TO ENGAGE</button>
   <div class="hint" style="max-width:340px;text-align:left">
     <b>HOW TO PLAY</b><br>
@@ -639,13 +639,14 @@ attribute vec3 aColor;
 uniform mat4 uMVP;
 uniform mat4 uModel;
 uniform vec3 uLight;
+uniform vec3 uTint;
 varying vec3 vColor;
 varying float vShade;
 void main(){
   vec3 nx=uModel[0].xyz, ny=uModel[1].xyz, nz=uModel[2].xyz;
   vec3 n=normalize(nx*aNormal.x+ny*aNormal.y+nz*aNormal.z);
   vShade=0.4+0.6*max(dot(n,normalize(uLight)),0.0);
-  vColor=aColor;
+  vColor=aColor*uTint;
   gl_Position=uMVP*vec4(aPos,1.0);
 }`;
 const TFS=`
@@ -667,13 +668,14 @@ const TA_COL=gl.getAttribLocation(tprog,'aColor');
 const TU_MVP=gl.getUniformLocation(tprog,'uMVP');
 const TU_MODEL=gl.getUniformLocation(tprog,'uModel');
 const TU_LIGHT=gl.getUniformLocation(tprog,'uLight');
+const TU_TINT=gl.getUniformLocation(tprog,'uTint');
 function makeTerrainMesh(arr){
   const buf=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER,buf);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);
   return {buf,count:arr.length/9};
 }
-function drawTerrainMesh(mesh,M,VP){
+function drawTerrainMesh(mesh,M,VP,tint){
   gl.useProgram(tprog);
   gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buf);
   gl.vertexAttribPointer(TA_POS,3,gl.FLOAT,false,36,0);
@@ -685,6 +687,7 @@ function drawTerrainMesh(mesh,M,VP){
   gl.uniformMatrix4fv(TU_MVP,false,m4Mul(VP,M));
   gl.uniformMatrix4fv(TU_MODEL,false,M);
   gl.uniform3fv(TU_LIGHT,LIGHT_DIR);
+  gl.uniform3fv(TU_TINT,tint||[1,1,1]);
   gl.drawArrays(gl.TRIANGLES,0,mesh.count);
 }
 
@@ -726,37 +729,51 @@ function rockTris(r){
   }
   return out;
 }
-function pushQuad(out,a,b,c,d){ pushTri(out,a,b,c); pushTri(out,a,c,d); }
-function pushBox(out,cx,cy,cz,sx,sy,sz){
+function pushTriC(out,a,b,c,col){
+  let n=V.cross(V.sub(b,a),V.sub(c,a));
+  n=V.len(n)>1e-6?V.norm(n):[0,1,0];
+  out.push(a[0],a[1],a[2],n[0],n[1],n[2],col[0],col[1],col[2],
+           b[0],b[1],b[2],n[0],n[1],n[2],col[0],col[1],col[2],
+           c[0],c[1],c[2],n[0],n[1],n[2],col[0],col[1],col[2]);
+}
+function pushQuadC(out,a,b,c,d,col){ pushTriC(out,a,b,c,col); pushTriC(out,a,c,d,col); }
+function pushBoxC(out,cx,cy,cz,sx,sy,sz,col){
   const x=sx/2,y=sy/2,z=sz/2;
   const P=[[cx-x,cy-y,cz-z],[cx+x,cy-y,cz-z],[cx+x,cy+y,cz-z],[cx-x,cy+y,cz-z],
            [cx-x,cy-y,cz+z],[cx+x,cy-y,cz+z],[cx+x,cy+y,cz+z],[cx-x,cy+y,cz+z]];
   const F=[[0,1,2],[0,2,3],[5,4,7],[5,7,6],[4,0,3],[4,3,7],[1,5,6],[1,6,2],[3,2,6],[3,6,7],[4,5,1],[4,1,0]];
-  for(const f of F) pushTri(out,P[f[0]],P[f[1]],P[f[2]]);
+  for(const f of F) pushTriC(out,P[f[0]],P[f[1]],P[f[2]],col);
 }
-// Low-poly interceptor: tapered fuselage, delta wings, twin engines, canopy.
-function shipTris(){
+// Low-poly interceptor with panel colors: fuselage, delta wings, twin engines, canopy.
+function shipMeshArr(pal){
   const out=[];
+  const H=pal.hull, U=pal.under, W=pal.wing, A=pal.acc, G=pal.glass, E=pal.glow;
   const nose=[0,0,-11];
   const front=[[0,1.7,-3],[1.4,0.9,-3],[1.5,-0.8,-3],[0,-1.4,-3],[-1.5,-0.8,-3],[-1.4,0.9,-3]];
   const rear =[[0,2.0,6],[1.8,1.1,6],[1.9,-1.0,6],[0,-1.7,6],[-1.9,-1.0,6],[-1.8,1.1,6]];
-  for(let i=0;i<6;i++) pushTri(out,nose,front[i],front[(i+1)%6]);           // nose cone
-  for(let i=0;i<6;i++) pushQuad(out,front[i],rear[i],rear[(i+1)%6],front[(i+1)%6]); // body
-  for(let i=1;i<5;i++) pushTri(out,rear[0],rear[i],rear[i+1]);              // rear cap
+  for(let i=0;i<6;i++) pushTriC(out,nose,front[i],front[(i+1)%6],(i===2||i===3)?U:H);       // nose
+  for(let i=0;i<6;i++) pushQuadC(out,front[i],rear[i],rear[(i+1)%6],front[(i+1)%6],(i===2||i===3)?U:H); // body
+  for(let i=1;i<5;i++) pushTriC(out,rear[0],rear[i],rear[i+1],H);                            // rear cap
   const t=0.45;
   for(const s of [1,-1]){
     const rF=[s*1.3,0.2,-1], rB=[s*1.7,0.2,4.6], tF=[s*8.5,0.1,3.0], tB=[s*8.5,0.1,5.6];
-    pushQuad(out,[rF[0],rF[1]+t,rF[2]],[tF[0],tF[1]+t,tF[2]],[tB[0],tB[1]+t,tB[2]],[rB[0],rB[1]+t,rB[2]]);
-    pushQuad(out,[rB[0],rB[1]-t,rB[2]],[tB[0],tB[1]-t,tB[2]],[tF[0],tF[1]-t,tF[2]],[rF[0],rF[1]-t,rF[2]]);
-    pushQuad(out,[rF[0],rF[1]-t,rF[2]],[tF[0],tF[1]-t,tF[2]],[tF[0],tF[1]+t,tF[2]],[rF[0],rF[1]+t,rF[2]]);
-    pushQuad(out,[rB[0],rB[1]-t,rB[2]],[rB[0],rB[1]+t,rB[2]],[tB[0],tB[1]+t,tB[2]],[tB[0],tB[1]-t,tB[2]]);
-    pushQuad(out,[tF[0],tF[1]+t,tF[2]],[tF[0],tF[1]-t,tF[2]],[tB[0],tB[1]-t,tB[2]],[tB[0],tB[1]+t,tB[2]]);
+    pushQuadC(out,[rF[0],rF[1]+t,rF[2]],[tF[0],tF[1]+t,tF[2]],[tB[0],tB[1]+t,tB[2]],[rB[0],rB[1]+t,rB[2]],W);
+    pushQuadC(out,[rB[0],rB[1]-t,rB[2]],[tB[0],tB[1]-t,tB[2]],[tF[0],tF[1]-t,tF[2]],[rF[0],rF[1]-t,rF[2]],U);
+    pushQuadC(out,[rF[0],rF[1]-t,rF[2]],[tF[0],tF[1]-t,tF[2]],[tF[0],tF[1]+t,tF[2]],[rF[0],rF[1]+t,rF[2]],A);
+    pushQuadC(out,[rB[0],rB[1]-t,rB[2]],[rB[0],rB[1]+t,rB[2]],[tB[0],tB[1]+t,tB[2]],[tB[0],tB[1]-t,tB[2]],A);
+    pushQuadC(out,[tF[0],tF[1]+t,tF[2]],[tF[0],tF[1]-t,tF[2]],[tB[0],tB[1]-t,tB[2]],[tB[0],tB[1]+t,tB[2]],W);
   }
-  pushBox(out,1.6,0.1,5.2,0.9,1.3,3.4);   // right engine nacelle
-  pushBox(out,-1.6,0.1,5.2,0.9,1.3,3.4);  // left engine nacelle
-  pushBox(out,0,1.55,-1.4,0.85,0.6,3.4);  // canopy
+  pushBoxC(out,1.6,0.1,5.2,0.9,1.3,3.4,H);
+  pushBoxC(out,-1.6,0.1,5.2,0.9,1.3,3.4,H);
+  pushBoxC(out,0,1.55,-1.4,0.85,0.6,3.4,G);       // canopy
+  for(const s of [1,-1]) pushBoxC(out,s*1.6,0.1,6.85,0.72,1.0,0.25,E); // engine glow plates
   return out;
 }
+const SHIP_PAL={
+  player:{hull:[0.60,0.68,0.80],under:[0.34,0.38,0.46],wing:[0.50,0.56,0.66],acc:[0.90,0.45,0.15],glass:[0.10,0.22,0.34],glow:[1.0,0.60,0.20]},
+  enemy: {hull:[0.52,0.16,0.16],under:[0.30,0.10,0.10],wing:[0.42,0.13,0.13],acc:[1.00,0.78,0.22],glass:[0.32,0.06,0.06],glow:[1.0,0.40,0.15]},
+  trader:{hull:[0.72,0.62,0.30],under:[0.44,0.38,0.17],wing:[0.62,0.52,0.24],acc:[0.25,0.55,0.72],glass:[0.18,0.24,0.22],glow:[1.0,0.72,0.26]},
+};
 function stationTris(){
   const out=[], r=18, h=26, n=8;
   const ring=[]; for(let i=0;i<n;i++){const a=i/n*Math.PI*2;ring.push([Math.cos(a)*r,0,Math.sin(a)*r]);}
@@ -784,7 +801,9 @@ function starfield(count){
 }
 
 const MESHes={
-  ship:makeSolidMesh(shipTris()),
+  ship:makeTerrainMesh(shipMeshArr(SHIP_PAL.player)),
+  enemyShip:makeTerrainMesh(shipMeshArr(SHIP_PAL.enemy)),
+  traderShip:makeTerrainMesh(shipMeshArr(SHIP_PAL.trader)),
   station:makeSolidMesh(stationTris()),
   stars:makeMesh(starfield(1400),gl.POINTS),
   sun:makeSolidMesh(sphereTris(600,8,14)),
@@ -896,22 +915,43 @@ function drawParticles(VP){
 // Higher-level effect helpers (solid colours)
 const FX={
   muzzle:(pos,dir,player)=>{
-    const col=player?[0.6,1.0,1.0]:[1.0,0.5,0.4];
-    spawnBurst(pos,player?4:3,50,0.16,col,3,[dir[0]*90,dir[1]*90,dir[2]*90]);
+    const col=player?[0.7,1.0,1.0]:[1.0,0.5,0.4];
+    spawnBurst(pos,player?5:4,60,0.16,col,3.2,[dir[0]*100,dir[1]*100,dir[2]*100]);
   },
   impact:(pos,shielded)=>{
     spawnBurst(pos,shielded?9:12,90,shielded?0.35:0.28,shielded?[0.5,0.95,1.0]:[1.0,0.6,0.2],shielded?3:3.5);
+    if(!shielded) FX.smoke(pos,3);
   },
   shieldFlare:(pos,scale)=>{
-    spawnBurst(pos,14,120,0.4,[0.45,0.9,1.0],4*(scale||1));
+    spawnBurst(pos,16,120,0.4,[0.45,0.9,1.0],4*(scale||1));
+    FX.ring(pos,[0.4,0.85,1.0]);
   },
   explosion:(pos,scale,color)=>{
-    spawnBurst(pos,Math.round(24*(scale||1)),200*(scale||1),0.7,color||[1.0,0.5,0.15],5*(scale||1));
-    spawnBurst(pos,Math.round(8*(scale||1)),70,1.1,[1.0,0.95,0.7],8*(scale||1));
-    spawnBurst(pos,Math.round(6*(scale||1)),260,0.5,[0.9,0.95,1.0],3*(scale||1));
+    scale=scale||1;
+    spawnBurst(pos,Math.round(24*scale),200*scale,0.7,color||[1.0,0.5,0.15],5*scale);
+    spawnBurst(pos,Math.round(10*scale),70,1.1,[1.0,0.95,0.7],8*scale);
+    spawnBurst(pos,Math.round(10*scale),300,0.5,[0.9,0.95,1.0],3*scale);
+    FX.ring(pos,color||[1.0,0.7,0.3]);
+    FX.smoke(pos,Math.round(8*scale));
   },
   sparks:(pos,color,n,life,speed,size)=>{
     spawnBurst(pos,n||6,speed||70,life||0.3,color||[1,0.8,0.3],size||3);
+  },
+  smoke:(pos,n)=>{
+    n=n||6;
+    for(let i=0;i<n;i++){
+      const u=Math.random()*2-1,th=Math.random()*Math.PI*2,s2=Math.sqrt(1-u*u),sp=8+Math.random()*26;
+      spawnParticle(pos[0],pos[1],pos[2],Math.cos(th)*s2*sp,u*sp,Math.sin(th)*s2*sp,
+        0.6+Math.random()*0.7,0.16,0.16,0.19,5+Math.random()*3,0.94);
+    }
+  },
+  ring:(pos,color)=>{
+    const n=24;
+    for(let i=0;i<n;i++){
+      const a=i/n*Math.PI*2, sp=110+Math.random()*50;
+      spawnParticle(pos[0],pos[1],pos[2],Math.cos(a)*sp,(Math.random()-0.5)*18,Math.sin(a)*sp,
+        0.4+Math.random()*0.2,color[0],color[1],color[2],3.4,0.9);
+    }
   },
 };
 
@@ -1029,7 +1069,7 @@ function generateSystem(gx,gz){
     const pr=420+rnd()*1500;
     const ang=rnd()*Math.PI*2;
     const col=PLANET_COLORS[(rnd()*PLANET_COLORS.length)|0];
-    planets.push({r:pr,orbit,ang,speed:(0.006+rnd()*0.02)*(rnd()<0.5?1:-1),
+    planets.push({r:pr,orbit,ang,speed:(0.0004+rnd()*0.0012)*(rnd()<0.5?1:-1),
       color:[col[0],col[1],col[2]],alpha:col[3],
       pos:[Math.cos(ang)*orbit,0,Math.sin(ang)*orbit]});
   }
@@ -1215,7 +1255,7 @@ function damageTrader(tr,dmg){
       if(cargoLoad()<game.cargoMax){ game.cargo[id]=(game.cargo[id]||0)+1; salvaged++; }
     }
     toast(salvaged?('TRADER DESTROYED \u2014 SALVAGE '+salvaged+'u'):'TRADER DESTROYED');
-    blip(150,0.5,'square'); vibrate(70);
+    explosionSfx(1.4); vibrate(70);
     if(game.targetId===tr.id) game.targetId=null;
   }
 }
@@ -1315,20 +1355,20 @@ document.getElementById('landBtn').addEventListener('pointerdown',e=>{e.preventD
 document.getElementById('closeTargetsBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeTargets();},{passive:false});
 
 /* ----------------------------- AUDIO (M8 stub now) ----------------------- */
-let actx=null,engineGain=null;
+let actx=null,engineGain=null,engineFilter=null;
 function initAudio(){
   if(actx) return;
   try{
     actx=new (window.AudioContext||window.webkitAudioContext)();
-    // engine rumble: brown noise -> lowpass
+    // engine rumble: layered brown noise -> modulated lowpass
     const len=actx.sampleRate*2;
     const buf=actx.createBuffer(1,len,actx.sampleRate);
     const data=buf.getChannelData(0); let last=0;
     for(let i=0;i<len;i++){const w=Math.random()*2-1;last=(last+0.02*w)/1.02;data[i]=last*3.5;}
     const src=actx.createBufferSource(); src.buffer=buf; src.loop=true;
-    const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=220;
+    engineFilter=actx.createBiquadFilter(); engineFilter.type='lowpass'; engineFilter.frequency.value=160; engineFilter.Q.value=0.8;
     engineGain=actx.createGain(); engineGain.gain.value=0.0;
-    src.connect(lp); lp.connect(engineGain); engineGain.connect(actx.destination);
+    src.connect(engineFilter); engineFilter.connect(engineGain); engineGain.connect(actx.destination);
     src.start();
   }catch(err){/* audio optional */}
 }
@@ -1359,6 +1399,41 @@ function noiseSweep(dur,f0,f1,gain){
   src.start(); src.stop(actx.currentTime+dur);
 }
 function boostSfx(){ noiseSweep(0.5,140,1600,0.25); }
+function laserSfx(team){
+  if(!actx) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type = team==='player'?'sawtooth':'square';
+  const f0=team==='player'?1150:620, f1=team==='player'?210:150;
+  o.frequency.setValueAtTime(f0,actx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(f1,actx.currentTime+0.09);
+  g.gain.value=0.15; g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+0.1);
+  o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime+0.11);
+}
+function hitSfx(){
+  if(!actx) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type='triangle'; o.frequency.setValueAtTime(1500,actx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(680,actx.currentTime+0.12);
+  g.gain.value=0.13; g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+0.14);
+  o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime+0.15);
+}
+function explosionSfx(scale){
+  if(!actx) return; scale=scale||1;
+  const dur=0.5*scale+0.35;
+  const len=Math.floor(actx.sampleRate*dur);
+  const buf=actx.createBuffer(1,len,actx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++){ const e=Math.pow(1-i/len,2); d[i]=(Math.random()*2-1)*e; }
+  const src=actx.createBufferSource(); src.buffer=buf;
+  const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=850;
+  const g=actx.createGain(); g.gain.value=0.5; g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
+  src.connect(lp); lp.connect(g); g.connect(actx.destination); src.start(); src.stop(actx.currentTime+dur);
+  const o=actx.createOscillator(), og=actx.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(130,actx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(42,actx.currentTime+0.4);
+  og.gain.value=0.32; og.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+0.45);
+  o.connect(og); og.connect(actx.destination); o.start(); o.stop(actx.currentTime+0.5);
+}
 
 /* ----------------------------- PHYSICS ----------------------------------- */
 const MAX_SPEED=180, BOOST_MULT=2.4;
@@ -1478,13 +1553,15 @@ function updateShip(dt){
   ship.pos=V.add(ship.pos,V.scale(ship.vel,dt));
   collideShip(dt);
 
-  // engine exhaust trail
-  if(Math.random()<dt*70){
-    const rear=V.add(ship.pos,qRotate([0,0,6],ship.quat));
+  // engine exhaust trail (twin nacelles; brighter under boost)
+  if(Math.random()<dt*(boosting?130:75)){
     const col=boosting?[1.0,0.6,0.25]:[0.4,0.85,1.0];
-    spawnParticle(rear[0]+(Math.random()-0.5)*0.8,rear[1]+(Math.random()-0.5)*0.8,rear[2]+(Math.random()-0.5)*0.8,
-      ship.vel[0]-fwd[0]*18,ship.vel[1]-fwd[1]*18,ship.vel[2]-fwd[2]*18,
-      0.28,col[0],col[1],col[2],boosting?5:3.2,0.9);
+    for(const s of (boosting?[1,-1]:[0])){
+      const rear=V.add(ship.pos,qRotate([s*1.6,-0.2,7],ship.quat));
+      spawnParticle(rear[0]+(Math.random()-0.5)*0.6,rear[1]+(Math.random()-0.5)*0.6,rear[2]+(Math.random()-0.5)*0.6,
+        ship.vel[0]-fwd[0]*18,ship.vel[1]-fwd[1]*18,ship.vel[2]-fwd[2]*18,
+        0.3,col[0],col[1],col[2],boosting?6:3.4,0.9);
+    }
   }
 
   // passive fuel scooping (prevents being permanently stranded between systems)
@@ -1502,7 +1579,7 @@ function updateShip(dt){
     fireBolt('player');
     ship.fireCd=COMBAT.fireCd;
     ship.heat=Math.min(100,ship.heat+12);
-    blip(880,0.09,'sawtooth');
+    laserSfx('player');
     vibrate(12);
   }
 
@@ -1585,7 +1662,7 @@ function damagePlayer(dmg){
   if(ship.shield>0){ship.shield-=dmg; if(ship.shield<0){ship.hull+=ship.shield;ship.shield=0;}}
   else ship.hull-=dmg;
   if(shielded) FX.shieldFlare(ship.pos,1); else FX.impact(ship.pos,false);
-  blip(180,0.12,'square'); vibrate(28);
+  hitSfx(); vibrate(28);
 }
 function damageEnemy(e,dmg){
   if(!e.alive) return;
@@ -1598,7 +1675,7 @@ function damageEnemy(e,dmg){
     const bounty=380+wave*60;
     game.credits+=bounty;
     toast('BOUNTY CLAIMED  +'+bounty+' CR');
-    blip(260,0.5,'triangle'); vibrate([40,30,60]);
+    explosionSfx(1.0); vibrate([40,30,60]);
     if(game.targetId===e.id) game.targetId=null;
     trackBounty();
     scheduleEnemyRespawn();
@@ -1654,7 +1731,7 @@ function updateEnemies(dt){
     if(dist<1100 && aim>0.985 && e.fireCd<=0 && ship.alive){
       fireBolt('enemy',e);
       e.fireCd=0.4+Math.random()*0.25;
-      blip(500,0.08,'sawtooth');
+      laserSfx('enemy');
     }
   }
   for(let i=enemies.length-1;i>=0;i--) if(!enemies[i].alive) enemies.splice(i,1);
@@ -1720,6 +1797,7 @@ function updateMining(dt){
 function fractureAsteroid(a){
   const idx=system.asteroids.indexOf(a); if(idx>=0) system.asteroids.splice(idx,1);
   FX.explosion(a.pos,Math.min(2,0.6+a.r/90),[0.85,0.82,0.78]);
+  explosionSfx(0.7);
   toast(a.resName+' DEPOSIT DEPLETED');
   for(let k=0;k<3;k++){
     system.asteroids.push({id:'d'+((Math.random()*1e9)|0),
@@ -1800,22 +1878,18 @@ function render(){
     drawSolid(MESHes.station,m4Compose(system.station.pos,system.station.quat,1),VP,col);
   }
 
-  // hostiles (solid red, amber when targeted, white flash when hit)
+  // hostiles (red panels, brighter when targeted, white flash when hit)
   for(const e of enemies){
     if(!e.alive) continue;
-    const isTgt = game.targetId===e.id;
-    let col = isTgt?[1.0,0.62,0.2]:[1.0,0.3,0.35];
-    if(e.hitT>1.1) col=[1.0,1.0,1.0];
-    drawSolid(MESHes.ship,m4Compose(e.pos,e.quat,1.2),VP,col);
+    let tint=e.hitT>1.1?[3.0,3.0,3.0]:(game.targetId===e.id?[1.35,1.35,1.35]:[1,1,1]);
+    drawTerrainMesh(MESHes.enemyShip,m4Compose(e.pos,e.quat,1.2),VP,tint);
   }
 
-  // traders (solid amber haulers)
+  // traders (amber haulers)
   for(const tr of traders){
     if(!tr.alive) continue;
-    const isTgt = game.targetId===tr.id;
-    let col = isTgt?[0.6,1.0,0.4]:[0.95,0.8,0.25];
-    if(tr.hitT>1.1) col=[1.0,1.0,1.0];
-    drawSolid(MESHes.ship,m4Compose(tr.pos,tr.quat,1.6),VP,col);
+    let tint=tr.hitT>1.1?[3.0,3.0,3.0]:(game.targetId===tr.id?[1.3,1.3,1.3]:[1,1,1]);
+    drawTerrainMesh(MESHes.traderShip,m4Compose(tr.pos,tr.quat,1.6),VP,tint);
   }
 
   // mining beam
@@ -1830,7 +1904,8 @@ function render(){
 
   // ship (hidden while destroyed)
   if(ship.alive){
-    drawSolid(MESHes.ship,m4Compose(ship.pos,ship.quat,1),VP,[0.5,1.0,1.0]);
+    const flash=ship.hitT>1.1?[2.4,2.4,2.4]:[1,1,1];
+    drawTerrainMesh(MESHes.ship,m4Compose(ship.pos,ship.quat,1),VP,flash);
   }
 
   // particles last (solid coloured points)
@@ -2822,7 +2897,7 @@ function renderSurface(){
   const VP=m4Mul(proj,cam.view);
   drawTerrainMesh(surface.mesh,m4Compose([0,0,0],qIdent(),1),VP);
   const sp=surface.shipPos;
-  drawSolid(MESHes.ship,m4Compose([sp[0],sp[1]+3,sp[2]],surface.shipQuat,1.2),VP,[0.5,1.0,1.0]);
+  drawTerrainMesh(MESHes.ship,m4Compose([sp[0],sp[1]+3,sp[2]],surface.shipQuat,1.2),VP,[1,1,1]);
   if(!surface.aboard){
     const py=player.pos[1];
     drawSolid(MESHes.body,m4Compose([player.pos[0],py+1.7,player.pos[2]],qAxisAngle([0,1,0],player.yaw),1),VP,[0.95,0.78,0.22]);
@@ -2891,6 +2966,7 @@ function updateAudio(){
   if(!engineGain) return;
   const target=ship.throttle*0.06+(ship.boosting?0.05:0)+(ship.faOn?0:0.01);
   engineGain.gain.setTargetAtTime(target,actx.currentTime,0.2);
+  if(engineFilter) engineFilter.frequency.setTargetAtTime(140+ship.throttle*320+(ship.boosting?280:0),actx.currentTime,0.15);
 }
 
 /* ----------------------------- START ------------------------------------- */
