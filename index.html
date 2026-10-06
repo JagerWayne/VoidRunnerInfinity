@@ -37,6 +37,8 @@
   #shipPanel { bottom:150px; left:8px; min-width:150px; }
 
   #creditsPanel { top:64px; right:8px; text-align:right; min-width:100px; }
+  #contractPanel { top:176px; left:8px; max-width:210px; }
+  #contractPanel #contractHud { font-size:10px; color:#bff4ff; }
 
   #radarWrap { position:absolute; top:118px; right:8px; width:104px; height:104px;
     border:1px solid rgba(80,220,255,0.35); border-radius:50%; overflow:hidden;
@@ -100,7 +102,8 @@
   .mktRow { display:flex; align-items:center; justify-content:space-between; padding:9px 10px;
     border-bottom:1px solid rgba(80,220,255,0.12); font-size:12px; }
   .mktRow .name { flex:1; color:#bff4ff; }
-  .mktRow .price { width:70px; text-align:right; color:#8fd0e0; }
+  .mktRow .price { width:54px; text-align:right; color:#8fd0e0; }
+  .mktRow .name { font-size:11px; }
   .mktRow .hold { width:52px; text-align:center; color:#5fa8c0; }
   .mktRow button { pointer-events:auto; width:40px; height:32px; margin-left:6px; border-radius:5px;
     border:1px solid rgba(90,220,255,0.5); background:rgba(12,40,60,0.8); color:#bfefff;
@@ -111,6 +114,19 @@
     letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
     background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
   #market .footer button.primary { background:#2b9fd0; color:#02141d; }
+
+  /* Contract board */
+  #contracts { position:fixed; inset:0; z-index:31; background:rgba(3,10,18,0.97);
+    padding:16px; display:flex; flex-direction:column; gap:8px; }
+  #contracts h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  #contracts .stats { display:flex; justify-content:space-between; font-size:12px; }
+  #contracts .footer { display:flex; gap:10px; }
+  #contracts .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #contracts .footer button.primary { background:#2b9fd0; color:#02141d; }
+  #contracts .mktTable { flex:none; max-height:34%; }
+  .mktHead { color:#3f8fb0; font-size:9px; letter-spacing:1px; }
 
   /* Galaxy map */
   #galaxy { position:fixed; inset:0; z-index:32; background:rgba(3,10,18,0.97);
@@ -204,6 +220,12 @@
       <div class="bar"><div id="tgtShieldBar"></div></div>
       <div class="bar"><div id="tgtHullBar"></div></div>
     </div>
+    <div id="tgtExtra" style="font-size:10px;color:#8fd0e0;margin-top:2px"></div>
+  </div>
+
+  <div id="contractPanel" class="panel hidden">
+    <div class="lbl">CONTRACTS</div>
+    <div id="contractHud"></div>
   </div>
 
   <div id="creditsPanel" class="panel">
@@ -233,6 +255,10 @@
   <div id="buttons">
     <button class="btn" id="galaxyBtn">GALAXY</button>
     <div class="row">
+      <button class="btn mini" id="hailBtn">HAIL</button>
+      <button class="btn mini" id="mineBtn">MINE</button>
+    </div>
+    <div class="row">
       <button class="btn mini" id="prevBtn">&#9664;</button>
       <button class="btn mini" id="nextBtn">&#9654;</button>
     </div>
@@ -254,7 +280,7 @@
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
   <button id="startBtn">TAP TO ENGAGE</button>
-  <div class="hint">LEFT THUMB: drag to pitch / yaw<br>RIGHT THUMB: fire, boost, roll, throttle, target cycle<br>TAP THE RADAR to select contacts. Hold a hostile in the reticle to LOCK, then lead the amber pip. Dock below 45 m/s.</div>
+  <div class="hint">LEFT THUMB: drag to pitch / yaw<br>RIGHT THUMB: fire, boost, roll, mine, throttle, target cycle<br>TAP THE RADAR to select. TARGET a rock + hold MINE to extract ore. TARGET a hauler + HAIL to trade. Hold a hostile in the reticle to LOCK. Dock below 45 m/s.</div>
 </div>
 
 <div id="market" class="hidden">
@@ -262,10 +288,27 @@
   <div class="stats">
     <span><span class="lbl">CREDITS</span> <span class="val" id="mktCredits">0</span></span>
     <span><span class="lbl">HOLD</span> <span class="val" id="mktHold">0/20</span></span>
+    <span><span class="lbl" id="mktPartyLbl">FUEL</span> <span class="val" id="mktParty">100%</span></span>
   </div>
   <div class="mktTable" id="mktTable"></div>
   <div class="footer">
-    <button id="undockBtn">UNDOCK</button>
+    <button id="contractsBtn">CONTRACTS</button>
+    <button id="undockBtn">LEAVE</button>
+  </div>
+</div>
+
+<div id="contracts" class="hidden">
+  <h2>CONTRACT BOARD</h2>
+  <div class="stats">
+    <span><span class="lbl">CREDITS</span> <span class="val" id="ctrCredits">0</span></span>
+    <span><span class="lbl">ACTIVE</span> <span class="val" id="ctrActive">0/3</span></span>
+  </div>
+  <div class="lbl" style="font-size:9px">AVAILABLE</div>
+  <div class="mktTable" id="contractList"></div>
+  <div class="lbl" style="font-size:9px">ACTIVE</div>
+  <div class="mktTable" id="activeContractList"></div>
+  <div class="footer">
+    <button id="closeContractsBtn" class="primary">BACK</button>
   </div>
 </div>
 
@@ -531,6 +574,18 @@ const MESHes={
   asteroid:makeMesh(sphereLines(70,5,8),gl.LINES),
   bolt:makeMesh([0,0,0],gl.POINTS),
 };
+// dynamic 2-vertex line used for the mining beam
+const beamMesh=(function(){
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0,0,0,0,0]),gl.DYNAMIC_DRAW);
+  return {buf,count:2,mode:gl.LINES};
+})();
+function drawBeam(VP,a,b,color){
+  gl.bindBuffer(gl.ARRAY_BUFFER,beamMesh.buf);
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,new Float32Array([a[0],a[1],a[2],b[0],b[1],b[2]]));
+  drawMesh(beamMesh,VP,color,1.0);
+}
 
 /* ----------------------------- VIEWPORT ---------------------------------- */
 let vw=1,vh=1,dpr=1;
@@ -546,7 +601,7 @@ window.addEventListener('orientationchange',()=>setTimeout(resize,120));
 resize();
 
 /* ----------------------------- GAME STATE -------------------------------- */
-const STATE={BOOT:0,FLIGHT:1,DOCKING:2,DOCKED:3,DEAD:4,WARP:5,MAP:6};
+const STATE={BOOT:0,FLIGHT:1,DOCKING:2,DOCKED:3,DEAD:4,WARP:5,MAP:6,TRADE:7};
 const game={
   state:STATE.BOOT,
   time:0,
@@ -559,6 +614,8 @@ const game={
   targetId:null,
   lockProg:0,
   locked:false,
+  mineProgress:0,
+  contracts:[],
 };
 
 const ship={
@@ -572,6 +629,7 @@ const ship={
   boosting:false,
   hull:100, shield:100, hitT:0, colCd:0,
   fireCd:0, radius:9,
+  mining:false, miningFrom:[0,0,0],
   alive:true,
 };
 ship.quat=qNorm(qMul(qAxisAngle([1,0,0],0.0),qIdent()));
@@ -674,17 +732,28 @@ function generateSystem(gx,gz){
 
   const asteroids=[];
   const belt=3600+rnd()*2400;
-  const nA=10+((rnd()*12)|0);
+  const nA=12+((rnd()*14)|0);
+  let aIdx=0;
   for(let i=0;i<nA;i++){
     const a=rnd()*Math.PI*2, d=belt+(rnd()-0.5)*1000, y=(rnd()-0.5)*520;
     const rr=45+rnd()*80;
     const pos=[Math.cos(a)*d,y,Math.sin(a)*d];
     if(station && V.len(V.sub(pos,station.pos))<rr+600) continue; // keep the dock approach clear
     if(V.len(V.sub(pos,startPos))<rr+600) continue;               // never spawn inside the ship
-    asteroids.push({pos,r:rr,quat:qAxisAngle([1,0,1],rnd()*6)});
+    const ro=rnd();
+    let com,resName;
+    if(ro<0.42){com='ore';resName='ROCKY';}
+    else if(ro<0.62){com='ice';resName='ICY';}
+    else if(ro<0.80){com='metals';resName='METALLIC';}
+    else if(ro<0.93){com='rare';resName='RARE';}
+    else {com='gems';resName='CRYSTALLINE';}
+    asteroids.push({id:'a'+(aIdx++),pos,r:rr,quat:qAxisAngle([1,0,1],rnd()*6),
+      com,resName,amount:6+((rnd()*14)|0),rich:0.7+rnd()*0.8,depleted:false});
   }
 
-  return {gx,gz,name,type,danger,sun,planets,station,asteroids,
+  const traderCount = type==='inhabited' ? 1+((rnd()*2)|0) : (type==='pirate' ? 1 : 0);
+
+  return {gx,gz,name,type,danger,sun,planets,station,asteroids,traderCount,
     start:{pos:startPos,quat:startQuat}};
 }
 function getSystem(gx,gz){
@@ -731,6 +800,92 @@ function resetEnemies(){
   game.targetId = system.station ? 'stn' : 'pl0';
   game.lockProg=0; game.locked=false;
 }
+
+/* ----------------------------- TRADERS (ship-to-ship) -------------------- */
+const traders=[];
+let traderSeq=0;
+const TRADER_NAMES=['HAULER','FREIGHT','CARAVAN','MERCHANT','SUPPLY','TENDER','PROSPECTOR','BARGE'];
+const GREEK=['ALPHA','BETA','GAMMA','DELTA','EPSILON','ZETA','ETA','THETA'];
+function makeTrader(i,count){
+  const rnd=mulberry32(hashSeed(current.gx*131+i*7, 23, current.gz*131+i*7));
+  const stock={}, sellPrices={}, buyPrices={};
+  const nSell=3+((rnd()*3)|0), chosen=[];
+  while(chosen.length<nSell){
+    const c=COMMODITIES[(rnd()*COMMODITIES.length)|0];
+    if(chosen.indexOf(c.id)<0) chosen.push(c.id);
+  }
+  for(const id of chosen){
+    stock[id]=2+((rnd()*8)|0);
+    sellPrices[id]=Math.max(4,Math.round(commodityBase(id)*(1.10+rnd()*0.35)));
+  }
+  for(const c of COMMODITIES) buyPrices[c.id]=Math.max(3,Math.round(c.base*(0.55+rnd()*0.25)));
+  const base=system.station?system.station.pos:[0,0,0];
+  const ang=(count?(i/count)*Math.PI*2:0)+Math.random()*0.6;
+  const dist=420+Math.random()*320;
+  let spawn=V.add(base,[Math.cos(ang)*dist,80+Math.random()*180,Math.sin(ang)*dist]);
+  for(let k=0;k<8;k++){
+    if(V.len(V.sub(spawn,ship.pos))>650) break;
+    const a2=Math.random()*Math.PI*2;
+    spawn=V.add(base,[Math.cos(a2)*600,120,Math.sin(a2)*600]);
+  }
+  return {
+    id:'t'+(++traderSeq),
+    name:TRADER_NAMES[(rnd()*TRADER_NAMES.length)|0]+' '+GREEK[(rnd()*GREEK.length)|0],
+    pos:spawn, vel:[0,0,0], quat:qLookAt(V.norm(V.sub(ship.pos,spawn)),[0,1,0]),
+    hull:60,hullMax:60,shield:30,shieldMax:30,hitT:0,radius:12,alive:true,
+    credits:1500+Math.round(rnd()*5000), stock, sellPrices, buyPrices,
+    wander:Math.random()*Math.PI*2, flee:false,
+  };
+}
+function resetTraders(){
+  traders.length=0; traderSeq=0;
+  const n=system.traderCount||0;
+  for(let i=0;i<n;i++) traders.push(makeTrader(i,n));
+}
+function traderCargo(tr){ let s=0; for(const id in tr.stock) s+=tr.stock[id]; return s; }
+function updateTraders(dt){
+  for(const t of traders){
+    if(!t.alive) continue;
+    t.hitT=Math.max(0,t.hitT-dt);
+    if(t.hitT<=0) t.shield=Math.min(t.shieldMax,t.shield+t.shieldMax*0.05*dt);
+    if(t.hull<t.hullMax*0.4) t.flee=true;
+    const toShip=V.sub(ship.pos,t.pos), dist=V.len(toShip);
+    let face;
+    if(t.flee || dist<220){
+      const away=dist>1e-3?V.norm(toShip):[1,0,0];
+      t.vel=V.lerp(t.vel,V.scale(away,t.flee?110:55),1-Math.exp(-2*dt));
+      face=away;
+    }else{
+      t.wander+=(Math.random()-0.5)*0.6*dt;
+      const dir=[Math.cos(t.wander),0,Math.sin(t.wander)];
+      t.vel=V.lerp(t.vel,V.scale(dir,28),1-Math.exp(-0.8*dt));
+      face=V.len(t.vel)>1?V.norm(t.vel):V.norm(V.sub(ship.pos,t.pos));
+    }
+    t.pos=V.add(t.pos,V.scale(t.vel,dt));
+    const wantQ=qLookAt(face,[0,1,0]);
+    t.quat=qNorm([t.quat[0]+(wantQ[0]-t.quat[0])*Math.min(1,2*dt),
+                  t.quat[1]+(wantQ[1]-t.quat[1])*Math.min(1,2*dt),
+                  t.quat[2]+(wantQ[2]-t.quat[2])*Math.min(1,2*dt),
+                  t.quat[3]+(wantQ[3]-t.quat[3])*Math.min(1,2*dt)]);
+  }
+}
+function damageTrader(tr,dmg){
+  if(!tr.alive) return;
+  tr.hitT=1.5; tr.flee=true;
+  if(tr.shield>0){tr.shield-=dmg; if(tr.shield<0){tr.hull+=tr.shield;tr.shield=0;}}
+  else tr.hull-=dmg;
+  if(tr.hull<=0){
+    tr.alive=false;
+    let salvaged=0;
+    for(const id in tr.stock){
+      if(salvaged>=3) break;
+      if(cargoLoad()<game.cargoMax){ game.cargo[id]=(game.cargo[id]||0)+1; salvaged++; }
+    }
+    toast(salvaged?('TRADER DESTROYED \u2014 SALVAGE '+salvaged+'u'):'TRADER DESTROYED');
+    blip(150,0.5,'square'); vibrate(70);
+    if(game.targetId===tr.id) game.targetId=null;
+  }
+}
 function placeShipAtStart(){
   ship.pos=system.start.pos.slice();
   ship.quat=system.start.quat.slice();
@@ -743,13 +898,14 @@ function loadSystem(gx,gz){
   system=getSystem(gx,gz);
   placeShipAtStart();
   resetEnemies();
+  resetTraders();
   setText('sysName',system.name);
   setText('sysType',system.type.toUpperCase());
   saveGame();
 }
 
 /* ----------------------------- INPUT ------------------------------------- */
-const input={stick:[0,0],stickActive:false,fire:false,boost:false,roll:0};
+const input={stick:[0,0],stickActive:false,fire:false,boost:false,roll:0,mine:false};
 const stickEl=document.getElementById('stick');
 const nubEl=document.getElementById('stickNub');
 let stickId=null,stickOrigin=[0,0];
@@ -818,6 +974,8 @@ function bindTap(id,fn){
 }
 bindTap('nextBtn',()=>cycleTarget(1));
 bindTap('prevBtn',()=>cycleTarget(-1));
+bindHold('mineBtn',()=>input.mine=true,()=>input.mine=false);
+bindTap('hailBtn',()=>hailTarget());
 
 /* ----------------------------- AUDIO (M8 stub now) ----------------------- */
 let actx=null,engineGain=null;
@@ -914,6 +1072,7 @@ function environmentalBodies(){
   if(system.station) b.push({pos:system.station.pos,r:24,name:'STATION',dmg:0.7});
   for(const a of system.asteroids) b.push({pos:a.pos,r:a.r,name:'ASTEROID',dmg:0.6});
   for(const e of enemies) if(e.alive) b.push({pos:e.pos,r:e.radius,name:'HOSTILE',dmg:0.5});
+  for(const t of traders) if(t.alive) b.push({pos:t.pos,r:t.radius,name:'TRADER',dmg:0.3});
   return b;
 }
 function collideShip(){
@@ -1038,6 +1197,12 @@ function updateProjectiles(dt){
         if(!e.alive) continue;
         if(raySphere(p0,p1,e.pos,e.radius)>=0){ damageEnemy(e,COMBAT.boltDmg); dead=true; break; }
       }
+      if(!dead){
+        for(const tr of traders){
+          if(!tr.alive) continue;
+          if(raySphere(p0,p1,tr.pos,tr.radius)>=0){ damageTrader(tr,COMBAT.boltDmg); dead=true; break; }
+        }
+      }
     }
     if(!dead && p.team==='enemy' && ship.alive){
       if(raySphere(p0,p1,ship.pos,ship.radius)>=0){
@@ -1075,6 +1240,7 @@ function damageEnemy(e,dmg){
     toast('BOUNTY CLAIMED  +'+bounty+' CR');
     blip(260,0.5,'triangle'); vibrate(60);
     if(game.targetId===e.id) game.targetId=null;
+    trackBounty();
     scheduleEnemyRespawn();
   }
 }
@@ -1128,6 +1294,44 @@ function updateEnemies(dt){
     }
   }
   for(let i=enemies.length-1;i>=0;i--) if(!enemies[i].alive) enemies.splice(i,1);
+}
+
+/* ----------------------------- MINING ------------------------------------ */
+const MINING_RANGE=650;
+let miningBeam=null;
+function updateMining(dt){
+  ship.mining=false; miningBeam=null;
+  if(!input.mine || game.state!==STATE.FLIGHT){ game.mineProgress=0; return; }
+  const t=currentTarget();
+  if(!t || t.kind!=='ASTEROID' || !t.ref) return;
+  const a=t.ref;
+  const rel=V.sub(a.pos,ship.pos), dist=V.len(rel), dir=V.norm(rel);
+  const align=V.dot(shipForward(),dir);
+  if(dist>MINING_RANGE || align<0.80 || a.amount<=0) return;
+  ship.miningFrom=V.add(ship.pos,V.scale(shipForward(),6));
+  miningBeam=a.pos;
+  if(cargoLoad()>=game.cargoMax){ toast('CARGO HOLD FULL'); return; }
+  ship.heat=Math.min(100,ship.heat+9*dt);
+  game.mineProgress+=dt;
+  if(game.mineProgress>=0.7){
+    game.mineProgress=0;
+    a.amount--;
+    game.cargo[a.com]=(game.cargo[a.com]||0)+1;
+    trackContractProgress('mine',a.com,1);
+    blip(300,0.07,'square'); vibrate(6);
+    if(a.amount<=0) fractureAsteroid(a);
+  }
+}
+function fractureAsteroid(a){
+  const idx=system.asteroids.indexOf(a); if(idx>=0) system.asteroids.splice(idx,1);
+  toast(a.resName+' DEPOSIT DEPLETED');
+  for(let k=0;k<3;k++){
+    system.asteroids.push({id:'d'+((Math.random()*1e9)|0),
+      pos:V.add(a.pos,[(Math.random()-0.5)*a.r,(Math.random()-0.5)*a.r,(Math.random()-0.5)*a.r]),
+      r:a.r*0.35,quat:qAxisAngle([1,0,1],Math.random()*6),com:null,resName:'DEBRIS',amount:0,rich:0,depleted:true});
+  }
+  if(game.targetId===a.id) game.targetId=null;
+  saveGame();
 }
 
 function destroyPlayer(){
@@ -1197,6 +1401,18 @@ function render(){
     drawMesh(MESHes.ship,m4Mul(VP,m4Compose(e.pos,e.quat,1.2)),isTgt?[1.0,0.62,0.2]:[1.0,0.35,0.4],0.95);
   }
 
+  // traders (yellow haulers)
+  for(const tr of traders){
+    if(!tr.alive) continue;
+    const isTgt = game.targetId===tr.id;
+    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(tr.pos,tr.quat,1.6)),isTgt?[0.6,1.0,0.4]:[0.95,0.85,0.3],0.9);
+  }
+
+  // mining beam
+  if(ship.mining && miningBeam && game.state===STATE.FLIGHT){
+    drawBeam(VP,ship.miningFrom,miningBeam,[1.0,0.55,0.15]);
+  }
+
   // projectiles
   for(const p of projectiles){
     drawMesh(MESHes.bolt,m4Mul(VP,m4Compose(p.pos,qIdent(),1)),p.color,1.0,7);
@@ -1236,12 +1452,29 @@ function updateHUD(dt){
       $('tgtShieldBar').style.width=Math.max(0,t.ref.shield/t.ref.shieldMax*100)+'%';
       $('tgtHullBar').style.width=Math.max(0,t.ref.hull/t.ref.hullMax*100)+'%';
     } else bars.style.display='none';
+    let extra='';
+    if(t.kind==='ASTEROID' && t.ref) extra=t.ref.resName+' VEIN \u00b7 '+t.ref.amount+'u';
+    else if(t.kind==='TRADER' && t.ref) extra='CARGO '+traderCargo(t.ref)+'u \u00b7 '+t.ref.credits.toLocaleString()+' CR';
+    setText('tgtExtra',extra);
   } else {
     setText('tgtName','---'); setText('tgtType','---');
     setText('tgtDist','---'); setText('tgtSpd','0'); setText('tgtLock','');
+    setText('tgtExtra','');
     $('tgtBars').style.display='none';
   }
+  updateContractHud();
+  checkContracts();
   $('thrFill').style.height=(ship.throttle*100)+'%';
+}
+function updateContractHud(){
+  const el=$('contractHud'), panel=$('contractPanel');
+  if(!el||!panel) return;
+  if(!game.contracts.length){ panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  el.innerHTML=game.contracts.map(c=>{
+    const prog=c.type==='delivery'?((game.cargo[c.com]||0)+'/'+c.need):(c.done+'/'+c.need);
+    return '<div>'+contractText(c)+' <span class="val">'+prog+'</span></div>';
+  }).join('');
 }
 
 /* ----------------------------- TARGETING --------------------------------- */
@@ -1256,6 +1489,15 @@ function buildContacts(){
   for(const e of enemies){
     if(!e.alive) continue;
     contacts.push({id:e.id,kind:'HOSTILE',name:e.name,pos:e.pos,vel:e.vel,hostile:true,ref:e});
+  }
+  for(const t of traders){
+    if(!t.alive) continue;
+    contacts.push({id:t.id,kind:'TRADER',name:t.name,pos:t.pos,vel:t.vel,hostile:false,ref:t});
+  }
+  for(const a of system.asteroids){
+    if(a.depleted) continue;
+    if(V.len(V.sub(a.pos,ship.pos))>4500) continue; // only nearby rocks are targetable
+    contacts.push({id:a.id,kind:'ASTEROID',name:a.resName+' ASTEROID',pos:a.pos,vel:[0,0,0],hostile:false,ref:a});
   }
   return contacts;
 }
@@ -1347,6 +1589,8 @@ function drawRadar(){
   for(const p of system.planets) blip(p.pos,'#3f8fd0');
   blip(system.sun.pos,'#ffcf6a');
   for(const e of enemies) if(e.alive) blip(e.pos,'#ff5a6e');
+  for(const tr of traders) if(tr.alive) blip(tr.pos,'#ffd166');
+  for(const a of system.asteroids) if(!a.depleted) blip(a.pos,'#8a9aa6');
   for(const p of projectiles) blip(p.pos,p.team==='player'?'#bff4ff':'#ff8a9a');
   // highlight the selected target
   const t=currentTarget();
@@ -1501,16 +1745,23 @@ function undock(){
 
 /* ----------------------------- MARKET (M7) ------------------------------- */
 const COMMODITIES=[
-  {id:'grain',name:'Agri-Grain',base:32},
   {id:'water',name:'Purified Water',base:14},
+  {id:'ice',name:'Water Ice',base:20},
+  {id:'grain',name:'Agri-Grain',base:32},
+  {id:'parts',name:'Machine Parts',base:96},
+  {id:'fuelcells',name:'Fuel Cells',base:44},
   {id:'ore',name:'Iron Ore',base:58},
+  {id:'copper',name:'Copper',base:88},
   {id:'metals',name:'Titanium',base:140},
   {id:'medical',name:'Med Supplies',base:210},
+  {id:'rare',name:'Rare Earths',base:280},
   {id:'luxury',name:'Luxury Goods',base:420},
-  {id:'parts',name:'Machine Parts',base:96},
-  {id:'fuel',name:'Hydrogen Fuel',base:24},
+  {id:'gems',name:'Gemstones',base:560},
 ];
+function commodityName(id){const c=COMMODITIES.find(x=>x.id===id);return c?c.name:id;}
+function commodityBase(id){const c=COMMODITIES.find(x=>x.id===id);return c?c.base:10;}
 const market={prices:{}};
+let tradeSession=null;
 function cargoLoad(){return Object.values(game.cargo).reduce((a,b)=>a+b,0);}
 function refreshPrices(){
   const rnd=mulberry32(hashSeed(current.gx,11,current.gz));
@@ -1523,56 +1774,224 @@ function openMarket(){
   const st=system.station;
   $('hud').classList.add('hidden');
   $('market').classList.remove('hidden');
+  const cb=$('contractsBtn');
   if(st && st.market){
     game.fuel=100;            // inhabited outposts refuel on dock
     refreshPrices();
+    refreshContracts();
+    tradeSession={mode:'station',title:system.name+' EXCHANGE',drift:true,
+      prices:market.prices,stock:null,buyPrices:market.prices,credits:null,trader:null,noServices:false};
+    if(cb) cb.style.display='';
+    checkDeliveries();
     saveGame();
+  } else {
+    tradeSession={mode:'station',title:system.name+' \u2014 DERELICT',drift:false,
+      prices:{},stock:{},buyPrices:{},credits:null,trader:null,noServices:true};
+    if(cb) cb.style.display='none';
   }
   renderMarket();
 }
+function openTrader(tr){
+  game.state=STATE.TRADE;
+  $('hud').classList.add('hidden');
+  $('market').classList.remove('hidden');
+  tradeSession={mode:'trader',title:tr.name,drift:false,
+    prices:tr.sellPrices,stock:tr.stock,buyPrices:tr.buyPrices,credits:tr.credits,trader:tr,noServices:false};
+  const cb=$('contractsBtn'); if(cb) cb.style.display='none';
+  renderMarket();
+}
 function renderMarket(){
-  const st=system.station;
-  const trading=!!(st && st.market);
-  $('mktTitle').textContent = trading ? (system.name+' EXCHANGE') : (system.name+' \u2014 DERELICT');
+  const s=tradeSession; if(!s) return;
+  $('mktTitle').textContent=s.title;
   $('mktCredits').textContent=game.credits.toLocaleString();
   $('mktHold').textContent=cargoLoad()+'/'+game.cargoMax;
+  setText('undockBtn', s.mode==='trader'?'CLOSE HAIL':'UNDOCK');
+  setText('mktPartyLbl', s.trader?'TRADER CR':'FUEL');
+  setText('mktParty', s.trader ? (s.trader.credits.toLocaleString()) : (Math.round(game.fuel)+'%'));
   const tbl=$('mktTable'); tbl.innerHTML='';
-  if(!trading){
+  if(s.noServices){
     const row=document.createElement('div'); row.className='mktRow';
     row.innerHTML='<span class="name">NO TRADE SERVICES \u2014 DERELICT HULK</span>';
     tbl.appendChild(row);
     return;
   }
+  const head=document.createElement('div'); head.className='mktRow mktHead';
+  head.innerHTML='<span class="name">COMMODITY</span><span class="price">BUY</span><span class="price">SELL</span><span class="hold">HELD</span>';
+  tbl.appendChild(head);
   for(const c of COMMODITIES){
-    const price=market.prices[c.id];
+    const buyP=s.prices[c.id];
+    const sellP=s.buyPrices[c.id];
     const hold=game.cargo[c.id]||0;
+    const avail=s.stock?(s.stock[c.id]||0):null;
     const row=document.createElement('div'); row.className='mktRow';
-    row.innerHTML='<span class="name">'+c.name+'</span>'+
-      '<span class="price">'+price+' cr</span>'+
+    row.innerHTML='<span class="name">'+c.name+(avail!==null?(' <span class="hold">x'+avail+'</span>'):'')+'</span>'+
+      '<span class="price">'+(buyP!==undefined?buyP:'--')+'</span>'+
+      '<span class="price">'+(sellP!==undefined?sellP:'--')+'</span>'+
       '<span class="hold">'+hold+'</span>';
     const buy=document.createElement('button'); buy.textContent='+';
-    buy.addEventListener('pointerdown',e=>{e.preventDefault();trade(c.id,1);},{passive:false});
+    if(avail===0 || buyP===undefined){ buy.style.opacity='0.35'; }
+    else buy.addEventListener('pointerdown',e=>{e.preventDefault();trade(c.id,1);},{passive:false});
     const sell=document.createElement('button'); sell.textContent='\u2212';
-    sell.addEventListener('pointerdown',e=>{e.preventDefault();trade(c.id,-1);},{passive:false});
+    if(!hold || sellP===undefined){ sell.style.opacity='0.35'; }
+    else sell.addEventListener('pointerdown',e=>{e.preventDefault();trade(c.id,-1);},{passive:false});
     row.appendChild(buy); row.appendChild(sell);
     tbl.appendChild(row);
   }
 }
 function trade(id,dir){
-  const price=market.prices[id];
+  const s=tradeSession; if(!s) return;
   if(dir>0){
+    const price=s.prices[id];
+    if(price===undefined){toast('NOT FOR SALE');return;}
+    if(s.stock && (s.stock[id]||0)<=0){toast('SOLD OUT');return;}
     if(game.credits<price){toast('INSUFFICIENT CREDITS');return;}
     if(cargoLoad()>=game.cargoMax){toast('CARGO HOLD FULL');return;}
     game.credits-=price; game.cargo[id]=(game.cargo[id]||0)+1;
-    market.prices[id]=Math.round(price*1.02);
+    if(s.stock){ s.stock[id]--; s.trader.credits+=price; }
+    else if(s.drift){ s.prices[id]=Math.round(price*1.02); }
     blip(660,0.06,'square');
   }else{
+    const price=s.buyPrices[id];
+    if(price===undefined){toast('NOT BUYING');return;}
     if(!game.cargo[id]){toast('NO CARGO TO SELL');return;}
+    if(s.trader && s.trader.credits<price){toast('TRADER OUT OF CREDITS');return;}
     game.credits+=price; game.cargo[id]--; if(!game.cargo[id]) delete game.cargo[id];
-    market.prices[id]=Math.max(4,Math.round(price*0.98));
+    if(s.trader){ s.trader.credits-=price; s.trader.stock[id]=(s.trader.stock[id]||0)+1; }
+    else if(s.drift){ s.prices[id]=Math.max(4,Math.round(price*0.98)); }
     blip(520,0.06,'square');
   }
   renderMarket(); saveGame();
+}
+const HAIL_RANGE=1400;
+function hailTarget(){
+  if(game.state!==STATE.FLIGHT) return;
+  const t=currentTarget();
+  if(!t || t.kind!=='TRADER' || !t.ref){ toast('NO TRADER TARGETED'); return; }
+  const d=V.len(V.sub(t.pos,ship.pos));
+  if(d>HAIL_RANGE){ toast('TRADER OUT OF RANGE ('+Math.round(d)+'m)'); return; }
+  openTrader(t.ref);
+}
+function leaveTrade(){
+  if(game.state===STATE.TRADE){
+    game.state=STATE.FLIGHT;
+    $('market').classList.add('hidden');
+    $('hud').classList.remove('hidden');
+    toast('HAIL CLOSED');
+  } else undock();
+}
+
+/* ----------------------------- CONTRACTS --------------------------------- */
+let contractOffers=[];
+function genContracts(){
+  const rnd=mulberry32(hashSeed(current.gx,41,current.gz));
+  const out=[];
+  const neighbours=galaxyList.filter(s=>{const d=Math.hypot(s.gx-current.gx,s.gz-current.gz);return d>0.001&&d<=JUMP_RANGE;});
+  for(let i=0;i<3;i++){
+    const id='c'+current.gx+'_'+current.gz+'_'+i;
+    const roll=rnd();
+    if(roll<0.5 && neighbours.length){
+      const com=COMMODITIES[(rnd()*COMMODITIES.length)|0];
+      const n=2+((rnd()*6)|0);
+      const dest=neighbours[(rnd()*neighbours.length)|0];
+      const destSys=getSystem(dest.gx,dest.gz);
+      out.push({id,type:'delivery',com:com.id,need:n,done:0,
+        destGx:dest.gx,destGz:dest.gz,destName:destSys.name,
+        reward:Math.round(commodityBase(com.id)*n*1.8+120+rnd()*220),accepted:false});
+    }else if(roll<0.78){
+      const n=1+((rnd()*3)|0);
+      out.push({id,type:'bounty',need:n,done:0,reward:200+n*160+Math.round(rnd()*180),accepted:false});
+    }else{
+      const com=['ore','ice','metals','rare'][(rnd()*4)|0];
+      const n=3+((rnd()*6)|0);
+      out.push({id,type:'mine',com,need:n,done:0,
+        reward:Math.round(commodityBase(com)*n*1.5+100+rnd()*160),accepted:false});
+    }
+  }
+  return out;
+}
+function refreshContracts(){ contractOffers=genContracts(); }
+function contractText(c){
+  if(c.type==='delivery') return 'DELIVER '+c.need+'x '+commodityName(c.com)+' to '+c.destName;
+  if(c.type==='bounty') return 'DESTROY '+c.need+' HOSTILE'+(c.need>1?'S':'');
+  return 'MINE '+c.need+'x '+commodityName(c.com);
+}
+function openContracts(){
+  $('market').classList.add('hidden');
+  $('contracts').classList.remove('hidden');
+  renderContracts();
+}
+function closeContracts(){
+  $('contracts').classList.add('hidden');
+  if(game.state===STATE.TRADE){ $('market').classList.remove('hidden'); renderMarket(); }
+  else { openMarket(); }
+}
+function renderContracts(){
+  const list=$('contractList'); if(!list) return;
+  setText('ctrCredits',game.credits.toLocaleString());
+  setText('ctrActive',game.contracts.length+'/3');
+  list.innerHTML='';
+  for(const c of contractOffers){
+    const active=game.contracts.some(a=>a.id===c.id);
+    const row=document.createElement('div'); row.className='mktRow';
+    row.innerHTML='<span class="name">'+contractText(c)+'</span><span class="price">'+c.reward+' cr</span>';
+    const b=document.createElement('button'); b.textContent=active?'\u2713':'+';
+    if(!active) b.addEventListener('pointerdown',e=>{e.preventDefault();acceptContract(c);},{passive:false});
+    else b.style.opacity='0.5';
+    row.appendChild(b);
+    list.appendChild(row);
+  }
+  const act=$('activeContractList');
+  if(act){
+    act.innerHTML='';
+    if(!game.contracts.length){
+      act.innerHTML='<div class="mktRow"><span class="name">NO ACTIVE CONTRACTS</span></div>';
+    } else {
+      for(const c of game.contracts){
+        const prog = c.type==='delivery' ? ('HOLD '+(game.cargo[c.com]||0)+'/'+c.need) : (c.done+'/'+c.need);
+        const row=document.createElement('div'); row.className='mktRow';
+        row.innerHTML='<span class="name">'+contractText(c)+'</span>'+
+          '<span class="hold">'+prog+'</span><span class="price">'+c.reward+' cr</span>';
+        act.appendChild(row);
+      }
+    }
+  }
+}
+function acceptContract(c){
+  if(game.contracts.length>=3){ toast('CONTRACT LOG FULL'); return; }
+  const copy=JSON.parse(JSON.stringify(c)); copy.accepted=true;
+  game.contracts.push(copy);
+  toast('CONTRACT ACCEPTED');
+  blip(600,0.1,'square'); vibrate(20);
+  renderContracts(); saveGame();
+}
+function trackContractProgress(type,com,n){
+  for(const c of game.contracts){
+    if(c.type!==type) continue;
+    if(type==='mine' && c.com!==com) continue;
+    c.done+=n;
+  }
+}
+function trackBounty(){ for(const c of game.contracts) if(c.type==='bounty') c.done++; }
+function completeContract(c){
+  game.credits+=c.reward;
+  game.contracts=game.contracts.filter(x=>x.id!==c.id);
+  toast('CONTRACT COMPLETE +'+c.reward+' CR');
+  blip(880,0.3,'triangle'); vibrate(40);
+  saveGame();
+}
+function checkContracts(){
+  for(const c of game.contracts.slice()){
+    if(c.type!=='delivery' && c.done>=c.need) completeContract(c);
+  }
+}
+function checkDeliveries(){
+  for(const c of game.contracts.slice()){
+    if(c.type!=='delivery') continue;
+    if(c.destGx!==current.gx||c.destGz!==current.gz) continue;
+    if((game.cargo[c.com]||0)<c.need) continue;
+    game.cargo[c.com]-=c.need; if(!game.cargo[c.com]) delete game.cargo[c.com];
+    completeContract(c);
+  }
 }
 
 /* ----------------------------- PERSISTENCE ------------------------------- */
@@ -1595,7 +2014,9 @@ function loadGame(){
     if(typeof d.gx==='number'&&typeof d.gz==='number'){ current.gx=d.gx; current.gz=d.gz; }
   }catch(e){}
 }
-$('undockBtn').addEventListener('pointerdown',e=>{e.preventDefault();undock();},{passive:false});
+$('undockBtn').addEventListener('pointerdown',e=>{e.preventDefault();leaveTrade();},{passive:false});
+$('contractsBtn').addEventListener('pointerdown',e=>{e.preventDefault();openContracts();},{passive:false});
+$('closeContractsBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeContracts();},{passive:false});
 
 /* ----------------------------- GALAXY MAP & WARP ------------------------- */
 let mapSelected=null, warpTarget=null, warpT=0;
@@ -1739,9 +2160,11 @@ function frame(now){
   if(game.state===STATE.FLIGHT){
     updateSystem(dt);
     updateEnemies(dt);
+    updateTraders(dt);
     updateProjectiles(dt);
     updateShip(dt);
     updateTargeting(dt);
+    updateMining(dt);
     checkDocking();
   } else if(game.state===STATE.DOCKING){
     updateDocking(dt);
