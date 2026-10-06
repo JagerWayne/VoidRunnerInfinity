@@ -227,6 +227,17 @@
     background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
   #cargo .footer button.primary { background:#2b9fd0; color:#02141d; }
 
+  /* Cargo pods */
+  #pods { position:fixed; inset:0; z-index:47; background:rgba(3,10,18,0.98);
+    padding:16px; display:flex; flex-direction:column; gap:10px; }
+  #pods h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  #pods .stats { display:flex; justify-content:space-between; font-size:12px; }
+  #pods .footer { display:flex; gap:10px; }
+  #pods .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #pods .footer button.primary { background:#2b9fd0; color:#02141d; }
+
   /* HUD size + compact options */
   #hud.size-s .btn { height:46px; font-size:9px; }
   #hud.size-s .btn.fire { height:64px; font-size:14px; }
@@ -463,6 +474,7 @@
   <div class="mktTable" id="mktTable"></div>
   <div class="footer">
     <button id="contractsBtn">CONTRACTS</button>
+    <button id="podsBtn">PODS</button>
     <button id="undockBtn">LEAVE</button>
   </div>
 </div>
@@ -511,6 +523,16 @@
   <h2>CHANGELOG</h2>
   <div id="changelogList" class="clog"></div>
   <div class="footer"><button id="closeChangelogBtn" class="primary">BACK</button></div>
+</div>
+
+<div id="pods" class="hidden">
+  <h2>CARGO PODS</h2>
+  <div class="stats">
+    <span><span class="lbl">HOLD</span> <span class="val" id="podHold">0/20</span></span>
+    <span><span class="lbl">CR</span> <span class="val" id="podCr">0</span></span>
+  </div>
+  <div class="mktTable" id="podList"></div>
+  <div class="footer"><button id="closePodsBtn" class="primary">BACK</button></div>
 </div>
 
 <div id="cargo" class="hidden">
@@ -949,7 +971,17 @@ const MESHes={
   bolt:makeMesh([0,0,0],gl.POINTS),
   body:makeSolidMesh(cubeTris(1.4,3.2,1.4)),
   head:makeSolidMesh(cubeTris(0.9,0.9,0.9)),
+  pod:makeSolidMesh(cubeTris(1.5,1.1,3.8)),
 };
+// Draw fitted cargo pods on the wings + under the fuselage.
+const POD_OFFSETS={left:[-6.6,-0.6,3.2],right:[6.6,-0.6,3.2],center:[0,-2.7,2.0]};
+function drawPods(VP,pos,quat){
+  for(const key in POD_OFFSETS){
+    const tier=game.pods[key]; if(!tier) continue;
+    const p=V.add(pos,qRotate(POD_OFFSETS[key],quat));
+    drawSolid(MESHes.pod,m4Compose(p,quat,1),VP,tier===2?[0.86,0.72,0.28]:[0.58,0.60,0.64]);
+  }
+}
 function cubeTris(sx,sy,sz){
   const x=sx/2,y=sy/2,z=sz/2;
   const P=[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]];
@@ -1112,7 +1144,8 @@ const game={
   time:0,
   credits:1000,
   fuel:100,
-  cargoMax:20,
+  cargoMax:20,                     // base hold
+  pods:{left:0,right:0,center:0},  // fitted cargo pods: 0 none, 1 standard(+10), 2 pro(+15)
   cargo:{},
   heat:0,
   toastT:0,
@@ -1125,6 +1158,11 @@ const game={
   bounty:0,
   pips:{sys:2,eng:2,wep:2},
 };
+// Cargo pods: 3 slots (left wing / right wing / centre), standard or Pro.
+const POD_CAP={0:0,1:10,2:15};
+const POD_PRICE={1:2500,2:6000};
+const POD_NAMES={0:'EMPTY',1:'STD (+10)',2:'PRO (+15)'};
+function cargoCap(){ let c=game.cargoMax; for(const k in game.pods) c+=POD_CAP[game.pods[k]]||0; return c; }
 // User-adjustable HUD options
 const settings={compact:false,opacity:1,size:'m'};
 
@@ -1400,7 +1438,7 @@ function damageTrader(tr,dmg){
     let salvaged=0;
     for(const id in tr.stock){
       if(salvaged>=3) break;
-      if(cargoLoad()<game.cargoMax){ game.cargo[id]=(game.cargo[id]||0)+1; salvaged++; }
+      if(cargoLoad()<cargoCap()){ game.cargo[id]=(game.cargo[id]||0)+1; salvaged++; }
     }
     toast(salvaged?('TRADER DESTROYED \u2014 SALVAGE '+salvaged+'u'):'TRADER DESTROYED');
     explosionSfx(1.4); vibrate(70);
@@ -2077,7 +2115,7 @@ function updateMining(dt){
               : a.com==='rare'?[0.85,0.55,1.0] : a.com==='metals'?[0.9,0.85,0.7] : [1.0,0.65,0.25];
     FX.sparks(sp,col,3,0.3,55,2.5);
   }
-  if(cargoLoad()>=game.cargoMax){ toast('CARGO HOLD FULL'); return; }
+  if(cargoLoad()>=cargoCap()){ toast('CARGO HOLD FULL'); return; }
   ship.heat=Math.min(100,ship.heat+9*dt);
   game.mineProgress+=dt;
   if(game.mineProgress>=0.7){
@@ -2218,6 +2256,7 @@ function render(){
   if(ship.alive){
     const flash=ship.hitT>1.1?[2.4,2.4,2.4]:[1,1,1];
     drawTerrainMesh(MESHes.ship,m4Compose(ship.pos,ship.quat,1),VP,flash);
+    drawPods(VP,ship.pos,ship.quat);
   }
 
   // particles last (solid coloured points)
@@ -2233,7 +2272,7 @@ function updateHUD(dt){
   setText('heatVal',Math.round(ship.heat)+'%');
   setText('spdVal',Math.round(V.len(ship.vel)));
   const load=Object.values(game.cargo).reduce((a,b)=>a+b,0);
-  setText('cargoVal',load+'/'+game.cargoMax);
+  setText('cargoVal',load+'/'+cargoCap());
   setText('creditsVal',game.credits.toLocaleString());
   setText('fuelVal',Math.round(game.fuel)+'%');
   setText('hullVal',Math.round(ship.hull)+'%');
@@ -2667,7 +2706,7 @@ function renderMarket(){
   const s=tradeSession; if(!s) return;
   $('mktTitle').textContent=s.title;
   $('mktCredits').textContent=game.credits.toLocaleString();
-  $('mktHold').textContent=cargoLoad()+'/'+game.cargoMax;
+  $('mktHold').textContent=cargoLoad()+'/'+cargoCap();
   setText('undockBtn', s.mode==='trader'?'CLOSE HAIL':'UNDOCK');
   setText('mktPartyLbl', s.trader?'TRADER CR':'FUEL');
   setText('mktParty', s.trader ? (s.trader.credits.toLocaleString()) : (Math.round(game.fuel)+'%'));
@@ -2708,7 +2747,7 @@ function trade(id,dir){
     if(price===undefined){toast('NOT FOR SALE');return;}
     if(s.stock && (s.stock[id]||0)<=0){toast('SOLD OUT');return;}
     if(game.credits<price){toast('INSUFFICIENT CREDITS');return;}
-    if(cargoLoad()>=game.cargoMax){toast('CARGO HOLD FULL');return;}
+    if(cargoLoad()>=cargoCap()){toast('CARGO HOLD FULL');return;}
     game.credits-=price; game.cargo[id]=(game.cargo[id]||0)+1;
     if(s.stock){ s.stock[id]--; s.trader.credits+=price; }
     else if(s.drift){ s.prices[id]=Math.round(price*1.02); }
@@ -2863,7 +2902,7 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify({
       credits:game.credits, cargo:game.cargo, fuel:game.fuel,
       gx:current.gx, gz:current.gz,
-      kills:game.kills, bounty:game.bounty, pips:game.pips,
+      kills:game.kills, bounty:game.bounty, pips:game.pips, pods:game.pods,
       settings:settings
     }));
   }catch(e){}
@@ -2879,6 +2918,7 @@ function loadGame(){
     if(typeof d.kills==='number') game.kills=d.kills;
     if(typeof d.bounty==='number') game.bounty=d.bounty;
     if(d.pips&&typeof d.pips==='object') game.pips=d.pips;
+    if(d.pods&&typeof d.pods==='object'){ game.pods={left:d.pods.left|0,right:d.pods.right|0,center:d.pods.center|0}; }
     if(d.settings&&typeof d.settings==='object'){ settings.compact=!!d.settings.compact; settings.opacity=d.settings.opacity||1; settings.size=d.settings.size||'m'; }
   }catch(e){}
 }
@@ -3010,9 +3050,14 @@ $('closeGalaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeG
 $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
 
 /* ----------------------------- CHANGELOG --------------------------------- */
-const VERSION='1.16';
+const VERSION='1.17';
 const CHANGELOG=[
-  {v:'1.16 \u00b7 AI (current)', items:[
+  {v:'1.17 \u00b7 PODS (current)', items:[
+    'Buy cargo pods at stations (PODS button in the market)',
+    '3 slots: left wing, right wing and under the fuselage',
+    'Standard pod +10, Pro pod +15; fitted pods appear on the ship',
+  ]},
+  {v:'1.16 \u00b7 AI', items:[
     'Enemies and traders steer around planets, the star, stations and asteroids',
     'Mining and trading now require being within 0.1 km of the object surface',
   ]},
@@ -3141,12 +3186,12 @@ function jettisonCargo(id,all){
   toast('JETTISONED '+n+'x '+commodityName(id));
   blip(300,0.1,'square');
   renderCargo();
-  setText('cargoVal',cargoLoad()+'/'+game.cargoMax);
+  setText('cargoVal',cargoLoad()+'/'+cargoCap());
   saveGame();
 }
 function renderCargo(){
   const list=$('cargoList'); if(!list) return;
-  setText('cargoHoldVal',cargoLoad()+'/'+game.cargoMax);
+  setText('cargoHoldVal',cargoLoad()+'/'+cargoCap());
   setText('cargoCrVal',game.credits.toLocaleString());
   list.innerHTML='';
   const ids=Object.keys(game.cargo).filter(id=>game.cargo[id]>0);
@@ -3177,6 +3222,42 @@ function closeCargo(){
 }
 document.getElementById('cargoBtn').addEventListener('pointerdown',e=>{e.preventDefault();openCargo();},{passive:false});
 document.getElementById('closeCargoBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeCargo();},{passive:false});
+
+/* ----------------------------- CARGO PODS -------------------------------- */
+// Buy at a station: 3 slots (left wing / right wing / under fuselage).
+function renderPods(){
+  setText('podHold',cargoLoad()+'/'+cargoCap());
+  setText('podCr',game.credits.toLocaleString());
+  const list=$('podList'); if(!list) return;
+  list.innerHTML='';
+  for(const [key,label] of [['left','LEFT WING'],['right','RIGHT WING'],['center','UNDER FUSELAGE']]){
+    const cur=game.pods[key];
+    const row=document.createElement('div'); row.className='mktRow';
+    row.innerHTML='<span class="name">'+label+'<br><span class="hold">'+POD_NAMES[cur]+'</span></span>';
+    const b1=document.createElement('button'); b1.textContent='+10'; b1.style.width='auto'; b1.style.padding='0 8px';
+    if(cur===1) b1.classList.add('on');
+    b1.addEventListener('pointerdown',e=>{e.preventDefault();buyPod(key,1);},{passive:false});
+    const b2=document.createElement('button'); b2.textContent='+15 PRO'; b2.style.width='auto'; b2.style.padding='0 8px';
+    if(cur===2) b2.classList.add('on');
+    b2.addEventListener('pointerdown',e=>{e.preventDefault();buyPod(key,2);},{passive:false});
+    row.appendChild(b1); row.appendChild(b2);
+    list.appendChild(row);
+  }
+}
+function buyPod(slot,tier){
+  if(game.pods[slot]===tier){ toast('ALREADY FITTED'); return; }
+  const price=POD_PRICE[tier];
+  if(game.credits<price){ toast('NEED '+price+' CR'); return; }
+  game.credits-=price; game.pods[slot]=tier;
+  toast(POD_NAMES[tier]+' POD FITTED  -'+price+' CR');
+  blip(720,0.08,'triangle'); vibrate(15);
+  saveGame(); renderPods();
+  setText('mktHold',cargoLoad()+'/'+cargoCap());
+}
+function openPods(){ $('market').classList.add('hidden'); $('pods').classList.remove('hidden'); renderPods(); }
+function closePods(){ $('pods').classList.add('hidden'); $('market').classList.remove('hidden'); renderMarket(); }
+$('podsBtn').addEventListener('pointerdown',e=>{e.preventDefault();openPods();},{passive:false});
+$('closePodsBtn').addEventListener('pointerdown',e=>{e.preventDefault();closePods();},{passive:false});
 
 /* ----------------------------- TOAST ------------------------------------- */
 let toastTimer=0;
@@ -3516,7 +3597,7 @@ function collectPOI(p){
   blip(840,0.16,'triangle'); vibrate(20);
   if(p.type==='ore'){
     let got=0;
-    for(let k=0;k<3 && cargoLoad()<game.cargoMax;k++){ game.cargo[p.com]=(game.cargo[p.com]||0)+1; got++; }
+    for(let k=0;k<3 && cargoLoad()<cargoCap();k++){ game.cargo[p.com]=(game.cargo[p.com]||0)+1; got++; }
     toast(got?('COLLECTED '+got+'x '+commodityName(p.com)):'CARGO HOLD FULL');
     if(got) trackContractProgress('mine',p.com,got);
   } else if(p.type==='probe'){ game.credits+=180; toast('PROBE SALVAGE +180 CR'); }
@@ -3543,7 +3624,7 @@ function updateSfcUI(){
   const act=$('sfcActionBtn'), exit=$('sfcExitBtn'), move=$('sfcMoveRow'), hint=$('hintBar');
   setText('sfcSamples', surface.collected+'/'+surface.pois.length);
   setText('sfcCr', game.credits.toLocaleString());
-  setText('sfcHold', cargoLoad()+'/'+game.cargoMax);
+  setText('sfcHold', cargoLoad()+'/'+cargoCap());
   if(surface.aboard){
     // In the ship on the ground: only LAUNCH or EXIT are relevant.
     if(move) move.style.display='none';
@@ -3647,6 +3728,7 @@ function renderSurface(){
   }
   const sp=surface.shipPos;
   drawTerrainMesh(MESHes.ship,m4Compose([sp[0],sp[1]+2.2,sp[2]],surface.shipQuat,1.2),VP,[1,1,1]);
+  drawPods(VP,[sp[0],sp[1]+2.2,sp[2]],surface.shipQuat);
   if(!surface.aboard){
     const py=player.pos[1];
     drawSolid(MESHes.body,m4Compose([player.pos[0],py+1.7,player.pos[2]],qAxisAngle([0,1,0],player.yaw),1),VP,[0.95,0.78,0.22]);

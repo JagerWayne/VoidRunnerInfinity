@@ -3,7 +3,12 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.16 · AI (current)
+## 1.17 · PODS (current)
+- Buy **cargo pods** at stations (**PODS** button in the market).
+- 3 slots: **left wing**, **right wing**, **under the fuselage**.
+- Standard pod **+10**, Pro pod **+15**; fitted pods appear on the ship.
+
+## 1.16 · AI
 - Enemies and traders **steer around** planets, the star, stations and asteroids.
 - **Mining and trading** now require being within **0.1 km** of the object surface.
 
