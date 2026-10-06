@@ -228,6 +228,13 @@
   #landBtn.show { display:block; }
   #landBtn:active { background:#2fb56a; color:#02141d; }
 
+  /* Contextual hint bar */
+  #hintBar { position:absolute; left:50%; bottom:118px; transform:translateX(-50%); display:none;
+    padding:7px 16px; border:1px solid rgba(90,220,255,0.5); border-radius:20px;
+    background:rgba(6,20,32,0.78); color:#bff4ff; font-size:11px; letter-spacing:1px;
+    white-space:nowrap; text-align:center; }
+  #hintBar.show { display:block; }
+
   #toast { position:fixed; left:50%; top:22%; transform:translateX(-50%); z-index:35;
     padding:8px 16px; border:1px solid rgba(90,220,255,0.5); border-radius:6px;
     background:rgba(8,24,38,0.85); color:#bff4ff; font-size:12px; letter-spacing:1px;
@@ -297,11 +304,11 @@
   <div id="buttons">
     <button class="btn" id="galaxyBtn">GALAXY</button>
     <button class="btn" id="targetBtn">TARGET</button>
-    <button class="btn" id="hailBtn">HAIL</button>
+    <button class="btn" id="hailBtn" style="visibility:hidden">HAIL</button>
 
     <button class="btn" id="rollLBtn">ROLL &#8634;</button>
     <button class="btn" id="rollRBtn">ROLL &#8635;</button>
-    <button class="btn" id="mineBtn">MINE</button>
+    <button class="btn" id="mineBtn" style="visibility:hidden">MINE</button>
 
     <button class="btn" id="thrDownBtn">THR &minus;</button>
     <button class="btn" id="thrUpBtn">THR +</button>
@@ -317,6 +324,7 @@
   </div>
 
   <button id="landBtn">LAND</button>
+  <div id="hintBar"></div>
 </div>
 
 <div id="gate">
@@ -324,7 +332,14 @@
   <div class="sub">I N F I N I T Y</div>
   <div class="hint" style="letter-spacing:2px;color:#2f8098">BUILD 2026-10-06 &middot; SURFACE UPDATE</div>
   <button id="startBtn">TAP TO ENGAGE</button>
-  <div class="hint">FLIGHT: left thumb pitch/yaw, right thumb fire/boost/mine/target.<br>TARGET a planet and press LAND to touch down, then WALK the surface. Reach the ship and ENTER to LAUNCH.<br>Mine rocks, trade with haulers, dock below 45 m/s.</div>
+  <div class="hint" style="max-width:340px;text-align:left">
+    <b>HOW TO PLAY</b><br>
+    1. LEFT thumb steers, RIGHT thumb fires / boosts.<br>
+    2. <b>LAND:</b> fly at a planet until a green <b>LAND</b> button appears, then tap it.<br>
+    3. <b>ON FOOT:</b> LEFT thumb walks. Walk back to your ship, tap <b>ENTER SHIP</b>, then <b>LAUNCH</b>.<br>
+    4. <b>MINE:</b> fly near an asteroid and hold <b>MINE</b> (button appears in range).<br>
+    5. <b>TRADE:</b> fly near a hauler and tap <b>HAIL</b>. Dock at stations under 45 m/s.
+  </div>
 </div>
 
 <div id="market" class="hidden">
@@ -711,14 +726,35 @@ function rockTris(r){
   }
   return out;
 }
+function pushQuad(out,a,b,c,d){ pushTri(out,a,b,c); pushTri(out,a,c,d); }
+function pushBox(out,cx,cy,cz,sx,sy,sz){
+  const x=sx/2,y=sy/2,z=sz/2;
+  const P=[[cx-x,cy-y,cz-z],[cx+x,cy-y,cz-z],[cx+x,cy+y,cz-z],[cx-x,cy+y,cz-z],
+           [cx-x,cy-y,cz+z],[cx+x,cy-y,cz+z],[cx+x,cy+y,cz+z],[cx-x,cy+y,cz+z]];
+  const F=[[0,1,2],[0,2,3],[5,4,7],[5,7,6],[4,0,3],[4,3,7],[1,5,6],[1,6,2],[3,2,6],[3,6,7],[4,5,1],[4,1,0]];
+  for(const f of F) pushTri(out,P[f[0]],P[f[1]],P[f[2]]);
+}
+// Low-poly interceptor: tapered fuselage, delta wings, twin engines, canopy.
 function shipTris(){
   const out=[];
-  const nose=[0,0,-8], top=[0,2,4], right=[3,0,4], bot=[0,-2,4], left=[-3,0,4];
-  const wR=[9,0,2], wL=[-9,0,2];
-  pushTri(out,nose,top,right); pushTri(out,nose,right,bot);
-  pushTri(out,nose,bot,left);  pushTri(out,nose,left,top);
-  pushTri(out,top,left,bot);   pushTri(out,top,bot,right);
-  pushTri(out,top,bot,wR);     pushTri(out,top,bot,wL);
+  const nose=[0,0,-11];
+  const front=[[0,1.7,-3],[1.4,0.9,-3],[1.5,-0.8,-3],[0,-1.4,-3],[-1.5,-0.8,-3],[-1.4,0.9,-3]];
+  const rear =[[0,2.0,6],[1.8,1.1,6],[1.9,-1.0,6],[0,-1.7,6],[-1.9,-1.0,6],[-1.8,1.1,6]];
+  for(let i=0;i<6;i++) pushTri(out,nose,front[i],front[(i+1)%6]);           // nose cone
+  for(let i=0;i<6;i++) pushQuad(out,front[i],rear[i],rear[(i+1)%6],front[(i+1)%6]); // body
+  for(let i=1;i<5;i++) pushTri(out,rear[0],rear[i],rear[i+1]);              // rear cap
+  const t=0.45;
+  for(const s of [1,-1]){
+    const rF=[s*1.3,0.2,-1], rB=[s*1.7,0.2,4.6], tF=[s*8.5,0.1,3.0], tB=[s*8.5,0.1,5.6];
+    pushQuad(out,[rF[0],rF[1]+t,rF[2]],[tF[0],tF[1]+t,tF[2]],[tB[0],tB[1]+t,tB[2]],[rB[0],rB[1]+t,rB[2]]);
+    pushQuad(out,[rB[0],rB[1]-t,rB[2]],[tB[0],tB[1]-t,tB[2]],[tF[0],tF[1]-t,tF[2]],[rF[0],rF[1]-t,rF[2]]);
+    pushQuad(out,[rF[0],rF[1]-t,rF[2]],[tF[0],tF[1]-t,tF[2]],[tF[0],tF[1]+t,tF[2]],[rF[0],rF[1]+t,rF[2]]);
+    pushQuad(out,[rB[0],rB[1]-t,rB[2]],[rB[0],rB[1]+t,rB[2]],[tB[0],tB[1]+t,tB[2]],[tB[0],tB[1]-t,tB[2]]);
+    pushQuad(out,[tF[0],tF[1]+t,tF[2]],[tF[0],tF[1]-t,tF[2]],[tB[0],tB[1]-t,tB[2]],[tB[0],tB[1]+t,tB[2]]);
+  }
+  pushBox(out,1.6,0.1,5.2,0.9,1.3,3.4);   // right engine nacelle
+  pushBox(out,-1.6,0.1,5.2,0.9,1.3,3.4);  // left engine nacelle
+  pushBox(out,0,1.55,-1.4,0.85,0.6,3.4);  // canopy
   return out;
 }
 function stationTris(){
@@ -1625,17 +1661,41 @@ function updateEnemies(dt){
 }
 
 /* ----------------------------- MINING ------------------------------------ */
-const MINING_RANGE=650;
+const MINING_RANGE=900;
 let miningBeam=null;
+function nearestContact(kind,maxDist){
+  let best=null,bd=maxDist||1e18;
+  for(const c of contacts){ if(c.kind!==kind) continue; const d=tgtDistTo(c); if(d<bd){bd=d;best=c;} }
+  return best;
+}
+// Best asteroid to mine: in range and most closely aligned with the nose.
+function bestAsteroidAhead(){
+  const fwd=shipForward();
+  let best=null,bs=0.35;
+  for(const c of contacts){
+    if(c.kind!=='ASTEROID'||!c.ref) continue;
+    const rel=V.sub(c.pos,ship.pos), d=V.len(rel);
+    if(d>MINING_RANGE||d<1e-3) continue;
+    const al=V.dot(fwd,V.scale(rel,1/d));
+    if(al>bs){ bs=al; best=c; }
+  }
+  return best;
+}
+function nearestPlanet(maxAlt){
+  let best=null,bd=1e18;
+  for(const p of system.planets){ const d=V.len(V.sub(ship.pos,p.pos)); if(d < p.r+maxAlt && d<bd){bd=d;best=p;} }
+  return best;
+}
 function updateMining(dt){
   ship.mining=false; miningBeam=null;
   if(!input.mine || game.state!==STATE.FLIGHT){ game.mineProgress=0; return; }
-  const t=currentTarget();
+  let t=currentTarget();
+  if(!t || t.kind!=='ASTEROID'){ t=bestAsteroidAhead(); if(t) game.targetId=t.id; }
   if(!t || t.kind!=='ASTEROID' || !t.ref) return;
   const a=t.ref;
   const rel=V.sub(a.pos,ship.pos), dist=V.len(rel), dir=V.norm(rel);
   const align=V.dot(shipForward(),dir);
-  if(dist>MINING_RANGE || align<0.80 || a.amount<=0) return;
+  if(dist>MINING_RANGE || align<0.3 || a.amount<=0) return;
   ship.miningFrom=V.add(ship.pos,V.scale(shipForward(),6));
   miningBeam=a.pos;
   if(Math.random()<dt*30){
@@ -1817,7 +1877,7 @@ function updateHUD(dt){
   }
   updateContractHud();
   checkContracts();
-  updateLandButton();
+  updateFlightButtons();
   $('thrFill').style.height=(ship.throttle*100)+'%';
 }
 function updateContractHud(){
@@ -2292,13 +2352,12 @@ function trade(id,dir){
   }
   renderMarket(); saveGame();
 }
-const HAIL_RANGE=1400;
+const HAIL_RANGE=2000;
 function hailTarget(){
   if(game.state!==STATE.FLIGHT) return;
-  const t=currentTarget();
-  if(!t || t.kind!=='TRADER' || !t.ref){ toast('NO TRADER TARGETED'); return; }
-  const d=V.len(V.sub(t.pos,ship.pos));
-  if(d>HAIL_RANGE){ toast('TRADER OUT OF RANGE ('+Math.round(d)+'m)'); return; }
+  let t=currentTarget();
+  if(!t || t.kind!=='TRADER'){ t=nearestContact('TRADER',HAIL_RANGE); if(t) game.targetId=t.id; }
+  if(!t || t.kind!=='TRADER' || !t.ref){ toast('NO TRADER IN RANGE'); return; }
   openTrader(t.ref);
 }
 function leaveTrade(){
@@ -2580,6 +2639,7 @@ function toast(msg){
 
 /* ============================ PLANET SURFACE ============================= */
 const SURF={HALF:1600,STEP:50};
+const LAND_ALT=1500;
 const WALK_SPEED=42, GRAVITY=72, JUMP_V=36;
 const player={pos:[0,0,0],vy:0,yaw:0,onGround:true};
 let surface=null, spaceReturn=null;
@@ -2652,11 +2712,11 @@ function buildSurface(planet, planetIdx){
 function tryLand(){
   if(game.state!==STATE.FLIGHT) return;
   const t=currentTarget();
-  if(!t || t.kind!=='PLANET' || !t.ref){ toast('NO PLANET TARGETED'); return; }
-  const p=t.ref;
+  let p=(t && t.kind==='PLANET' && t.ref) ? t.ref : nearestPlanet(LAND_ALT);
+  if(!p){ toast('FLY TO A PLANET TO LAND'); return; }
   const d=V.len(V.sub(ship.pos,p.pos));
-  if(d > p.r+600){ toast('TOO FAR TO LAND'); return; }
-  if(V.len(ship.vel)>160){ toast('SLOW DOWN TO LAND'); return; }
+  if(d > p.r+LAND_ALT){ toast('TOO FAR TO LAND'); return; }
+  if(V.len(ship.vel)>200){ toast('SLOW DOWN TO LAND'); return; }
   const idx=system.planets.indexOf(p);
   const key=current.gx+'_'+current.gz+'_'+idx;
   if(!surfaceCache[key]) surfaceCache[key]=buildSurface(p,idx);
@@ -2686,6 +2746,7 @@ function launchFromSurface(){
   ship.throttle=0.4; ship.alive=true; ship.hull=Math.max(ship.hull,60);
   game.state=STATE.FLIGHT;
   $('hud').classList.remove('surface-mode');
+  $('hintBar').classList.remove('show');
   cam.smooth=V.add(ship.pos,qRotate([0,7,24],ship.quat));
   surface=null;
   toast('LIFT-OFF');
@@ -2700,12 +2761,16 @@ function sfcAction(){
   updateSfcUI();
 }
 function updateSfcUI(){
-  const act=$('sfcActionBtn'); if(!act||!surface) return;
-  if(surface.aboard){ act.textContent='LAUNCH'; act.classList.add('on'); }
-  else {
+  const act=$('sfcActionBtn'), hint=$('hintBar');
+  if(!act||!surface) return;
+  if(surface.aboard){
+    act.style.display=''; act.textContent='LAUNCH'; act.classList.add('on');
+    if(hint){ hint.textContent='PRESS LAUNCH TO RETURN TO ORBIT'; hint.classList.add('show'); }
+  } else {
     const d=Math.hypot(player.pos[0]-surface.shipPos[0], player.pos[2]-surface.shipPos[2]);
-    act.textContent = d<14 ? 'ENTER SHIP' : 'WALK TO SHIP';
-    act.classList.toggle('on', d<14);
+    if(d<14){ act.style.display=''; act.textContent='ENTER SHIP'; act.classList.add('on'); }
+    else act.style.display='none';
+    if(hint){ hint.textContent = d<14?'PRESS ENTER SHIP TO BOARD':('RETURN TO YOUR SHIP \u2014 '+Math.round(d)+'m'); hint.classList.add('show'); }
   }
 }
 function updateSurface(dt){
@@ -2764,16 +2829,23 @@ function renderSurface(){
     drawSolid(MESHes.head,m4Compose([player.pos[0],py+3.7,player.pos[2]],qAxisAngle([0,1,0],player.yaw),1),VP,[0.85,0.9,0.95]);
   }
 }
-function updateLandButton(){
-  const el=$('landBtn'); if(!el) return;
-  if(game.state!==STATE.FLIGHT){ el.classList.remove('show'); return; }
-  const t=currentTarget();
-  let can=false;
-  if(t && t.kind==='PLANET' && t.ref){
-    const d=V.len(V.sub(ship.pos,t.ref.pos));
-    if(d < t.ref.r+600 && V.len(ship.vel)<160) can=true;
-  }
-  el.classList.toggle('show',can);
+function updateFlightButtons(){
+  const land=$('landBtn'), hail=$('hailBtn'), mine=$('mineBtn'), hint=$('hintBar');
+  if(game.state!==STATE.FLIGHT){ if(land) land.classList.remove('show'); if(hint) hint.classList.remove('show'); return; }
+  const planet=nearestPlanet(LAND_ALT);
+  const trader=nearestContact('TRADER',HAIL_RANGE);
+  const rock=bestAsteroidAhead();
+  const slow=V.len(ship.vel)<200;
+  const canLand=planet && slow;
+  if(land) land.classList.toggle('show', !!canLand);
+  if(hail) hail.style.visibility = trader?'visible':'hidden';
+  if(mine) mine.style.visibility = rock?'visible':'hidden';
+  let h='';
+  if(canLand) h='LAND AVAILABLE \u2014 PRESS LAND';
+  else if(planet && !slow) h='SLOW DOWN TO LAND';
+  else if(rock) h='HOLD MINE TO EXTRACT ORE';
+  else if(trader) h='PRESS HAIL TO TRADE';
+  if(hint){ hint.textContent=h; hint.classList.toggle('show', !!h); }
 }
 
 /* ----------------------------- LOOP -------------------------------------- */
