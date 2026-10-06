@@ -146,6 +146,30 @@
   #waypoint .dist { position:absolute; left:0; top:16px; transform:translateX(-50%);
     font-size:9px; color:#9fe9ff; white-space:nowrap; text-shadow:0 0 6px #0a3f55; }
 
+  /* On-screen target bracket */
+  #targetBox { position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px; display:none; pointer-events:none; }
+  #targetBox i { position:absolute; width:14px; height:14px; border:2px solid #7fe9ff; }
+  #targetBox i:nth-child(1){ left:0; top:0; border-right:none; border-bottom:none; }
+  #targetBox i:nth-child(2){ right:0; top:0; border-left:none; border-bottom:none; }
+  #targetBox i:nth-child(3){ left:0; bottom:0; border-right:none; border-top:none; }
+  #targetBox i:nth-child(4){ right:0; bottom:0; border-left:none; border-top:none; }
+  #targetBox.hostile i { border-color:#ff6a7e; }
+  #targetBox.locked i { border-color:#ffd166; box-shadow:0 0 8px #ffb347; }
+  #targetBox.locked { animation:lockPulse .5s infinite alternate; }
+  @keyframes lockPulse { from{transform:scale(1)} to{transform:scale(1.08)} }
+
+  /* Lead indicator */
+  #leadPip { position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; display:none; pointer-events:none;
+    transform:rotate(45deg); border:2px solid #ffd166; box-shadow:0 0 8px #ffb347; }
+
+  /* Target health bars */
+  #tgtBars { display:none; margin-top:3px; }
+  .bar { height:5px; background:rgba(255,255,255,0.12); border:1px solid rgba(90,220,255,0.35);
+    border-radius:3px; overflow:hidden; margin-top:2px; }
+  .bar > div { height:100%; width:100%; transition:width .12s linear; }
+  #tgtShieldBar { background:linear-gradient(to right,#1e7fb0,#6fe6ff); box-shadow:0 0 6px #3bd0ff; }
+  #tgtHullBar { background:linear-gradient(to right,#b0431e,#ffa36f); box-shadow:0 0 6px #ff6a3b; }
+
   /* Damage flash */
   #hitflash { position:fixed; inset:0; z-index:20; pointer-events:none; opacity:0;
     background:radial-gradient(ellipse at center, rgba(255,40,70,0) 38%, rgba(255,30,60,0.6) 100%);
@@ -172,9 +196,14 @@
   </div>
 
   <div id="targetPanel" class="panel">
-    <div><span class="lbl">TARGET</span> <span class="val" id="tgtName">---</span></div>
-    <div><span class="lbl">DIST</span> <span class="val" id="tgtDist">---</span></div>
-    <div><span class="lbl">SHLD</span> <span class="val" id="tgtShield">---</span></div>
+    <div><span class="lbl">TGT</span> <span class="val" id="tgtName">---</span></div>
+    <div><span class="lbl">TYPE</span> <span class="val" id="tgtType">---</span> <span class="warn" id="tgtLock"></span></div>
+    <div><span class="lbl">DIST</span> <span class="val" id="tgtDist">---</span>
+         <span class="lbl">SPD</span> <span class="val" id="tgtSpd">0</span></div>
+    <div id="tgtBars">
+      <div class="bar"><div id="tgtShieldBar"></div></div>
+      <div class="bar"><div id="tgtHullBar"></div></div>
+    </div>
   </div>
 
   <div id="creditsPanel" class="panel">
@@ -196,11 +225,17 @@
   <div id="throttle"><div id="thrFill"></div></div>
 
   <div id="reticle"><div id="reticleDot"></div></div>
+  <div id="targetBox"><i></i><i></i><i></i><i></i></div>
+  <div id="leadPip"></div>
   <div id="waypoint"><div class="ring"></div><div class="dist"></div></div>
   <div id="stick"><div id="stickNub"></div></div>
 
   <div id="buttons">
     <button class="btn" id="galaxyBtn">GALAXY</button>
+    <div class="row">
+      <button class="btn mini" id="prevBtn">&#9664;</button>
+      <button class="btn mini" id="nextBtn">&#9654;</button>
+    </div>
     <div class="row">
       <button class="btn mini" id="rollLBtn">&#8634;</button>
       <button class="btn mini" id="rollRBtn">&#8635;</button>
@@ -219,7 +254,7 @@
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
   <button id="startBtn">TAP TO ENGAGE</button>
-  <div class="hint">LEFT THUMB: drag to pitch / yaw<br>RIGHT THUMB: fire, boost, roll, throttle, flight assist<br>Aim with the reticle. Fly to the station marker and dock below 45 m/s.</div>
+  <div class="hint">LEFT THUMB: drag to pitch / yaw<br>RIGHT THUMB: fire, boost, roll, throttle, target cycle<br>TAP THE RADAR to select contacts. Hold a hostile in the reticle to LOCK, then lead the amber pip. Dock below 45 m/s.</div>
 </div>
 
 <div id="market" class="hidden">
@@ -302,12 +337,14 @@ function qRotate(v,q){
 }
 function qLookAt(fwd,up){
   fwd=V.norm(fwd);
-  let right=V.cross(up,fwd); if(V.len(right)<1e-6)right=[1,0,0];
-  right=V.norm(right);
-  const u=V.cross(fwd,right);
-  const m00=right[0],m01=u[0],m02=-fwd[0];
-  const m10=right[1],m11=u[1],m12=-fwd[1];
-  const m20=right[2],m21=u[2],m22=-fwd[2];
+  // Right-handed basis: X=right, Y=up, Z=back(=-fwd), with X = fwd x up.
+  let X=V.cross(fwd,up); if(V.len(X)<1e-6)X=[1,0,0];
+  X=V.norm(X);
+  const Z=V.norm(V.scale(fwd,-1));
+  const Y=V.cross(Z,X);
+  const m00=X[0],m01=Y[0],m02=Z[0];
+  const m10=X[1],m11=Y[1],m12=Z[1];
+  const m20=X[2],m21=Y[2],m22=Z[2];
   const tr=m00+m11+m22; let q;
   if(tr>0){const s=Math.sqrt(tr+1)*2;q=[(m21-m12)/s,(m02-m20)/s,(m10-m01)/s,0.25*s];}
   else if(m00>m11&&m00>m22){const s=Math.sqrt(1+m00-m11-m22)*2;q=[0.25*s,(m01+m10)/s,(m02+m20)/s,(m21-m12)/s];}
@@ -519,6 +556,9 @@ const game={
   cargo:{},
   heat:0,
   toastT:0,
+  targetId:null,
+  lockProg:0,
+  locked:false,
 };
 
 const ship={
@@ -656,28 +696,40 @@ function getSystem(gx,gz){
 /* ----------------------------- COMBAT ENTITIES (M5) ---------------------- */
 const projectiles=[];
 const COMBAT={ boltSpeed:700, boltLife:2.2, boltDmg:7, fireCd:0.16 };
-let wave=0, pirateRespawnTimer=null;
-const pirate={
-  name:'HOSTILE CORSAIR',
-  pos:[0,0,0], vel:[0,0,0], quat:qIdent(),
-  hull:90, hullMax:90, shield:60, shieldMax:60, hitT:0,
-  alive:false, radius:14, ai:'APPROACH', fireCd:1.5, speed:95,
-};
+const MAX_ENEMIES=3;
+let wave=0, enemySeq=0, enemyRespawnTimer=null;
+const enemies=[];
 
+function makeEnemy(i,count){
+  const level=system.danger+wave;
+  const base = system.station ? system.station.pos : [0,0,0];
+  const hullMax=70+level*22, shieldMax=40+level*16;
+  // pick an approach vector that does not drop the hostile on top of the player
+  let spawn=V.add(base,[900,180,0]);
+  for(let k=0;k<8;k++){
+    const ang=(count ? (i/count)*Math.PI*2 : 0) + Math.random()*Math.PI*2;
+    const dist=700+Math.random()*500;
+    const p=V.add(base,[Math.cos(ang)*dist,120+Math.random()*260,Math.sin(ang)*dist]);
+    spawn=p;
+    if(V.len(V.sub(p,ship.pos))>850) break;
+  }
+  return {
+    id:'e'+(++enemySeq),
+    name:(system.type==='pirate'?'SYNDICATE RAIDER':'CORSAIR')+'-'+String.fromCharCode(65+i),
+    pos:spawn,
+    vel:[0,0,0], quat:qIdent(),
+    hull:hullMax, hullMax, shield:shieldMax, shieldMax,
+    hitT:0, alive:true, radius:14, fireCd:1+Math.random(), speed:85+level*8,
+  };
+}
 function resetEnemies(){
   projectiles.length=0;
-  if(pirateRespawnTimer){clearTimeout(pirateRespawnTimer);pirateRespawnTimer=null;}
-  wave=0;
-  if(system.danger<=0){ pirate.alive=false; return; }
-  pirate.hullMax=70+system.danger*25; pirate.hull=pirate.hullMax;
-  pirate.shieldMax=40+system.danger*20; pirate.shield=pirate.shieldMax;
-  pirate.speed=85+system.danger*10;
-  pirate.name = system.type==='pirate' ? 'SYNDICATE RAIDER' : 'HOSTILE CORSAIR';
-  const base = system.station ? system.station.pos : [0,0,0];
-  const a=Math.random()*Math.PI*2;
-  pirate.pos=V.add(base,[Math.cos(a)*650,120+Math.random()*200,Math.sin(a)*650]);
-  pirate.vel=[0,0,0]; pirate.quat=qIdent(); pirate.fireCd=2; pirate.hitT=0;
-  pirate.alive=true;
+  if(enemyRespawnTimer){clearTimeout(enemyRespawnTimer);enemyRespawnTimer=null;}
+  enemies.length=0; wave=0; enemySeq=0;
+  const n=Math.min(system.danger,MAX_ENEMIES);
+  for(let i=0;i<n;i++) enemies.push(makeEnemy(i,n));
+  game.targetId = system.station ? 'stn' : 'pl0';
+  game.lockProg=0; game.locked=false;
 }
 function placeShipAtStart(){
   ship.pos=system.start.pos.slice();
@@ -760,6 +812,12 @@ bindHold('thrUpBtn',()=>throttleStep(0.25),()=>{});
 bindHold('thrDownBtn',()=>throttleStep(-0.25),()=>{});
 bindHold('rollLBtn',()=>input.roll=-1,()=>{if(input.roll<0)input.roll=0;});
 bindHold('rollRBtn',()=>input.roll=1,()=>{if(input.roll>0)input.roll=0;});
+function bindTap(id,fn){
+  const el=document.getElementById(id);
+  el.addEventListener('pointerdown',e=>{e.preventDefault();if(game.state===STATE.FLIGHT)fn();},{passive:false});
+}
+bindTap('nextBtn',()=>cycleTarget(1));
+bindTap('prevBtn',()=>cycleTarget(-1));
 
 /* ----------------------------- AUDIO (M8 stub now) ----------------------- */
 let actx=null,engineGain=null;
@@ -855,7 +913,7 @@ function environmentalBodies(){
   for(const p of system.planets) b.push({pos:p.pos,r:p.r,name:'PLANET',dmg:0.8});
   if(system.station) b.push({pos:system.station.pos,r:24,name:'STATION',dmg:0.7});
   for(const a of system.asteroids) b.push({pos:a.pos,r:a.r,name:'ASTEROID',dmg:0.6});
-  if(pirate.alive) b.push({pos:pirate.pos,r:pirate.radius,name:'CORSAIR',dmg:0.5});
+  for(const e of enemies) if(e.alive) b.push({pos:e.pos,r:e.radius,name:'HOSTILE',dmg:0.5});
   return b;
 }
 function collideShip(){
@@ -950,15 +1008,15 @@ function updateShip(dt){
   if(ship.heat>95) ship.hull=Math.max(0,ship.hull-6*dt);
 }
 
-function fireBolt(team){
-  const src = team==='player' ? ship : pirate;
-  const fwd = shipForwardOf(src);
-  const origin = V.add(src.pos, V.scale(fwd, 10));
+function fireBolt(team,src){
+  const s = src || ship;
+  const fwd = shipForwardOf(s);
+  const origin = V.add(s.pos, V.scale(fwd, 10));
   const spread = team==='player' ? 0 : 0.02;
-  const dir = qRotate([ (Math.random()-0.5)*spread, (Math.random()-0.5)*spread, -1 ], src.quat);
+  const dir = qRotate([ (Math.random()-0.5)*spread, (Math.random()-0.5)*spread, -1 ], s.quat);
   projectiles.push({
     pos:origin,
-    vel:V.add(src.vel, V.scale(dir, COMBAT.boltSpeed)),
+    vel:V.add(s.vel, V.scale(dir, COMBAT.boltSpeed)),
     life:COMBAT.boltLife,
     team:team,
     color: team==='player'?[0.4,1.0,1.0]:[1.0,0.35,0.4],
@@ -975,9 +1033,10 @@ function updateProjectiles(dt){
     p.life-=dt;
     let dead=p.life<=0;
 
-    if(!dead && p.team==='player' && pirate.alive){
-      if(raySphere(p0,p1,pirate.pos,pirate.radius)>=0){
-        damagePirate(COMBAT.boltDmg); dead=true;
+    if(!dead && p.team==='player'){
+      for(const e of enemies){
+        if(!e.alive) continue;
+        if(raySphere(p0,p1,e.pos,e.radius)>=0){ damageEnemy(e,COMBAT.boltDmg); dead=true; break; }
       }
     }
     if(!dead && p.team==='enemy' && ship.alive){
@@ -1004,70 +1063,71 @@ function damagePlayer(dmg){
   else ship.hull-=dmg;
   blip(180,0.12,'square'); vibrate(28);
 }
-function damagePirate(dmg){
-  pirate.hitT=1.5;
-  if(pirate.shield>0){pirate.shield-=dmg; if(pirate.shield<0){pirate.hull+=pirate.shield;pirate.shield=0;}}
-  else pirate.hull-=dmg;
-  if(pirate.hull<=0 && pirate.alive){
-    pirate.alive=false;
-    const bounty=450+wave*75;
+function damageEnemy(e,dmg){
+  if(!e.alive) return;
+  e.hitT=1.5;
+  if(e.shield>0){e.shield-=dmg; if(e.shield<0){e.hull+=e.shield;e.shield=0;}}
+  else e.hull-=dmg;
+  if(e.hull<=0){
+    e.alive=false;
+    const bounty=380+wave*60;
     game.credits+=bounty;
     toast('BOUNTY CLAIMED  +'+bounty+' CR');
     blip(260,0.5,'triangle'); vibrate(60);
-    if(system.danger>0 && !pirateRespawnTimer){
-      pirateRespawnTimer=setTimeout(()=>{pirateRespawnTimer=null;spawnPirate();},9000);
+    if(game.targetId===e.id) game.targetId=null;
+    scheduleEnemyRespawn();
+  }
+}
+function scheduleEnemyRespawn(){
+  if(enemyRespawnTimer || system.danger<=0) return;
+  const cap=Math.min(system.danger,MAX_ENEMIES);
+  if(enemies.filter(x=>x.alive).length>=cap) return;
+  enemyRespawnTimer=setTimeout(()=>{
+    enemyRespawnTimer=null;
+    if(game.state===STATE.BOOT) return;
+    if(enemies.filter(x=>x.alive).length>=Math.min(system.danger,MAX_ENEMIES)) return;
+    wave++;
+    enemies.push(makeEnemy(enemies.length,Math.min(system.danger,MAX_ENEMIES)));
+    toast('HOSTILE REINFORCEMENT INBOUND');
+    blip(200,0.4,'square');
+  },9000);
+}
+function updateEnemies(dt){
+  for(const e of enemies){
+    if(!e.alive) continue;
+    e.fireCd-=dt;
+    e.hitT=Math.max(0,e.hitT-dt);
+    if(e.hitT<=0) e.shield=Math.min(e.shieldMax,e.shield+e.shieldMax*0.08*dt);
+
+    const toShip=V.sub(ship.pos,e.pos);
+    const dist=V.len(toShip);
+    const dir=V.norm(toShip);
+
+    // face the player
+    const wantQ=qLookAt(dir,[0,1,0]);
+    e.quat=qNorm([e.quat[0]+(wantQ[0]-e.quat[0])*Math.min(1,3*dt),
+                  e.quat[1]+(wantQ[1]-e.quat[1])*Math.min(1,3*dt),
+                  e.quat[2]+(wantQ[2]-e.quat[2])*Math.min(1,3*dt),
+                  e.quat[3]+(wantQ[3]-e.quat[3])*Math.min(1,3*dt)]);
+
+    // keep ~250u range, strafe otherwise
+    let move=V.scale(dir,1);
+    if(dist<200) move=V.scale(dir,-1);
+    else if(dist<300) move=[-dir[2],0,dir[0]];
+    const desired=V.scale(V.norm(move),e.speed);
+    e.vel=V.lerp(e.vel,desired,1-Math.exp(-1.5*dt));
+    e.pos=V.add(e.pos,V.scale(e.vel,dt));
+
+    // fire when roughly aligned and in range
+    const fwd=shipForwardOf(e);
+    const aim=V.dot(fwd,dir);
+    if(dist<1100 && aim>0.985 && e.fireCd<=0 && ship.alive){
+      fireBolt('enemy',e);
+      e.fireCd=0.4+Math.random()*0.25;
+      blip(500,0.08,'sawtooth');
     }
   }
-}
-function spawnPirate(){
-  if(game.state===STATE.BOOT) return;
-  wave++;
-  pirate.hullMax=70+system.danger*25+wave*15; pirate.hull=pirate.hullMax;
-  pirate.shieldMax=40+system.danger*20+wave*10; pirate.shield=pirate.shieldMax;
-  pirate.speed=85+system.danger*10+wave*5;
-  pirate.fireCd=1.5;
-  const base = system.station ? system.station.pos : [0,0,0];
-  const a=Math.random()*Math.PI*2;
-  pirate.pos=V.add(base,[Math.cos(a)*650,120+Math.random()*200,Math.sin(a)*650]);
-  pirate.vel=[0,0,0]; pirate.quat=qIdent();
-  pirate.alive=true;
-  toast('HOSTILE WAVE '+wave+' INBOUND');
-  blip(200,0.4,'square');
-}
-
-function updatePirate(dt){
-  if(!pirate.alive) return;
-  pirate.fireCd-=dt;
-  pirate.hitT=Math.max(0,pirate.hitT-dt);
-  if(pirate.hitT<=0) pirate.shield=Math.min(pirate.shieldMax,pirate.shield+pirate.shieldMax*0.08*dt);
-
-  const toShip=V.sub(ship.pos,pirate.pos);
-  const dist=V.len(toShip);
-  const dir=V.norm(toShip);
-
-  // face the player
-  const wantQ=qLookAt(dir,[0,1,0]);
-  pirate.quat=qNorm([pirate.quat[0]+(wantQ[0]-pirate.quat[0])*Math.min(1,3*dt),
-                     pirate.quat[1]+(wantQ[1]-pirate.quat[1])*Math.min(1,3*dt),
-                     pirate.quat[2]+(wantQ[2]-pirate.quat[2])*Math.min(1,3*dt),
-                     pirate.quat[3]+(wantQ[3]-pirate.quat[3])*Math.min(1,3*dt)]);
-
-  // movement: keep ~250u range, strafe otherwise
-  let move=V.scale(dir,1);
-  if(dist<200) move=V.scale(dir,-1);
-  else if(dist<280) move=[-dir[2],0,dir[0]];
-  const desired=V.scale(V.norm(move),pirate.speed);
-  pirate.vel=V.lerp(pirate.vel,desired,1-Math.exp(-1.5*dt));
-  pirate.pos=V.add(pirate.pos,V.scale(pirate.vel,dt));
-
-  // fire when roughly aligned and in range
-  const fwd=shipForwardOf(pirate);
-  const aim=V.dot(fwd,dir);
-  if(dist<900 && aim>0.985 && pirate.fireCd<=0 && ship.alive){
-    fireBolt('enemy');
-    pirate.fireCd=0.35+Math.random()*0.2;
-    blip(500,0.08,'sawtooth');
-  }
+  for(let i=enemies.length-1;i>=0;i--) if(!enemies[i].alive) enemies.splice(i,1);
 }
 
 function destroyPlayer(){
@@ -1130,9 +1190,11 @@ function render(){
     drawMesh(MESHes.station,stationM,col,0.95);
   }
 
-  // pirate
-  if(pirate.alive){
-    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(pirate.pos,pirate.quat,1.2)),[1.0,0.35,0.4],0.95);
+  // hostiles (amber when targeted)
+  for(const e of enemies){
+    if(!e.alive) continue;
+    const isTgt = game.targetId===e.id;
+    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(e.pos,e.quat,1.2)),isTgt?[1.0,0.62,0.2]:[1.0,0.35,0.4],0.95);
   }
 
   // projectiles
@@ -1161,22 +1223,101 @@ function updateHUD(dt){
   setText('hullVal',Math.round(ship.hull)+'%');
   setText('shieldVal',Math.round(ship.shield)+'%');
   setText('thrVal',Math.round(ship.throttle*100)+'%');
-  const tgt=nearestTarget();
-  if(tgt){
-    setText('tgtName',tgt.name);
-    setText('tgtDist',(V.len(V.sub(tgt.pos,ship.pos))/1000).toFixed(2)+'km');
-    setText('tgtShield',tgt.shield!==undefined?Math.round(tgt.shield)+'%':'---');
+  const t=currentTarget();
+  if(t){
+    setText('tgtName',t.name);
+    setText('tgtType',t.kind);
+    setText('tgtDist',(V.len(V.sub(t.pos,ship.pos))/1000).toFixed(2)+'km');
+    setText('tgtSpd',Math.round(V.len(t.vel||[0,0,0])));
+    setText('tgtLock', t.hostile ? (game.locked?'[LOCKED]':(game.lockProg>0.03?'['+Math.round(game.lockProg*100)+'%]':'')) : '[NAV]');
+    const bars=$('tgtBars');
+    if(t.hostile && t.ref){
+      bars.style.display='block';
+      $('tgtShieldBar').style.width=Math.max(0,t.ref.shield/t.ref.shieldMax*100)+'%';
+      $('tgtHullBar').style.width=Math.max(0,t.ref.hull/t.ref.hullMax*100)+'%';
+    } else bars.style.display='none';
+  } else {
+    setText('tgtName','---'); setText('tgtType','---');
+    setText('tgtDist','---'); setText('tgtSpd','0'); setText('tgtLock','');
+    $('tgtBars').style.display='none';
   }
   $('thrFill').style.height=(ship.throttle*100)+'%';
 }
-function nearestTarget(){
-  const cand=[];
-  if(system.station) cand.push({name:system.name+' STN',pos:system.station.pos});
-  for(const p of system.planets) cand.push({name:'PLANET',pos:p.pos});
-  if(pirate.alive) cand.push({name:pirate.name,pos:pirate.pos,shield:pirate.shield});
-  let best=null,bd=1e18;
-  for(const c of cand){const d=V.len(V.sub(c.pos,ship.pos)); if(d<bd){bd=d;best=c;best.dist=d;}}
-  return best;
+
+/* ----------------------------- TARGETING --------------------------------- */
+const TARGET_RANGE=9000, LOCK_TIME=1.2;
+let contacts=[];
+function buildContacts(){
+  contacts.length=0;
+  if(system.station) contacts.push({id:'stn',kind:'STATION',name:system.name+' STN',
+    pos:system.station.pos,vel:[0,0,0],hostile:false});
+  system.planets.forEach((p,i)=>contacts.push({id:'pl'+i,kind:'PLANET',name:'PLANET '+(i+1),
+    pos:p.pos,vel:[0,0,0],hostile:false}));
+  for(const e of enemies){
+    if(!e.alive) continue;
+    contacts.push({id:e.id,kind:'HOSTILE',name:e.name,pos:e.pos,vel:e.vel,hostile:true,ref:e});
+  }
+  return contacts;
+}
+function contactById(id){ for(const c of contacts) if(c.id===id) return c; return null; }
+function currentTarget(){ return contactById(game.targetId); }
+function tgtDistTo(c){ return V.len(V.sub(c.pos,ship.pos)); }
+
+function cycleTarget(dir){
+  buildContacts();
+  if(!contacts.length){ game.targetId=null; return; }
+  const hostiles=contacts.filter(c=>c.hostile).sort((a,b)=>tgtDistTo(a)-tgtDistTo(b));
+  const nav=contacts.filter(c=>!c.hostile).sort((a,b)=>tgtDistTo(a)-tgtDistTo(b));
+  const list=hostiles.concat(nav);
+  let idx=list.findIndex(c=>c.id===game.targetId);
+  idx = idx<0 ? 0 : ((idx+dir)%list.length+list.length)%list.length;
+  game.targetId=list[idx].id;
+  game.lockProg=0; game.locked=false;
+  blip(760,0.05,'square');
+}
+function updateTargeting(dt){
+  buildContacts();
+  // auto-acquire only when nothing valid is selected
+  if(!game.targetId || !contactById(game.targetId)){
+    let bestHostile=null,bh=1e18,bestNav=null,bn=1e18;
+    for(const c of contacts){
+      const d=tgtDistTo(c);
+      if(c.hostile){ if(d<bh){bh=d;bestHostile=c;} }
+      else{ if(d<bn){bn=d;bestNav=c;} }
+    }
+    if(bestHostile && bh<TARGET_RANGE) game.targetId=bestHostile.id;
+    else if(bestNav) game.targetId=bestNav.id;
+    else game.targetId=bestHostile?bestHostile.id:null;
+    game.lockProg=0; game.locked=false;
+  }
+  // lock progression: needs a hostile target held in the forward cone
+  const t=currentTarget();
+  if(t && t.hostile){
+    const to=V.sub(t.pos,ship.pos), dist=V.len(to), dir=V.norm(to);
+    const align=V.dot(shipForward(),dir);
+    if(dist<TARGET_RANGE && align>0.90) game.lockProg=Math.min(1,game.lockProg+dt/LOCK_TIME);
+    else game.lockProg=Math.max(0,game.lockProg-dt*1.5);
+    game.locked=game.lockProg>=1;
+  } else { game.lockProg=0; game.locked=false; }
+}
+// Intercept solution for the lead reticle (relative velocity, bolt speed).
+function leadPoint(t){
+  const s=COMBAT.boltSpeed;
+  const r=V.sub(t.pos,ship.pos);
+  const v=V.sub(t.vel||[0,0,0],ship.vel);
+  const a=V.dot(v,v)-s*s, b=2*V.dot(r,v), c=V.dot(r,r);
+  let tt;
+  if(Math.abs(a)<1e-6){ if(Math.abs(b)<1e-6) return null; tt=-c/b; }
+  else{
+    const disc=b*b-4*a*c; if(disc<0) return null;
+    const sq=Math.sqrt(disc);
+    const t1=(-b-sq)/(2*a), t2=(-b+sq)/(2*a);
+    const cand=[t1,t2].filter(x=>x>0.01);
+    if(!cand.length) return null;
+    tt=Math.min.apply(null,cand);
+  }
+  if(!isFinite(tt)||tt>4) return null;
+  return V.add(t.pos, V.scale(t.vel||[0,0,0],tt));
 }
 
 /* Radar */
@@ -1205,11 +1346,46 @@ function drawRadar(){
   if(system.station) blip(system.station.pos, system.station.market?'#5fe6ff':'#ffb347');
   for(const p of system.planets) blip(p.pos,'#3f8fd0');
   blip(system.sun.pos,'#ffcf6a');
-  if(pirate.alive) blip(pirate.pos,'#ff5a6e');
+  for(const e of enemies) if(e.alive) blip(e.pos,'#ff5a6e');
   for(const p of projectiles) blip(p.pos,p.team==='player'?'#bff4ff':'#ff8a9a');
+  // highlight the selected target
+  const t=currentTarget();
+  if(t){
+    const rel=V.sub(t.pos,ship.pos);
+    const f=V.dot(rel,fwd), r=V.dot(rel,right);
+    const sc=(H*0.42)/range;
+    const hx=cx+r*sc, hy=cy-f*sc;
+    if(Math.hypot(hx-cx,hy-cy)<=H*0.44){
+      rctx.strokeStyle=t.hostile?(game.locked?'#ffd166':'#ff6a7e'):'#7fe9ff';
+      rctx.lineWidth=2;
+      rctx.beginPath(); rctx.arc(hx,hy,8,0,7); rctx.stroke();
+    }
+  }
   // ship
   rctx.fillStyle='#ffffff'; rctx.beginPath(); rctx.arc(cx,cy,3,0,7); rctx.fill();
 }
+// Tap the radar to select the nearest contact under the finger.
+radar.addEventListener('pointerdown',e=>{
+  if(game.state!==STATE.FLIGHT) return;
+  e.preventDefault();
+  const rect=radar.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(radar.width/rect.width);
+  const y=(e.clientY-rect.top)*(radar.height/rect.height);
+  const W=radar.width,H=radar.height,cx=W/2,cy=H/2;
+  const fwd=shipForward();
+  let ref=[0,1,0]; if(Math.abs(V.dot(fwd,ref))>0.99) ref=[0,0,1];
+  const right=V.norm(V.cross(fwd,ref));
+  const range=12000, sc=(H*0.42)/range;
+  let best=null,bd=1e9;
+  for(const c of contacts){
+    const rel=V.sub(c.pos,ship.pos);
+    const bx=cx+V.dot(rel,right)*sc, by=cy-V.dot(rel,fwd)*sc;
+    if(Math.hypot(bx-cx,by-cy)>H*0.44) continue;
+    const dd=Math.hypot(bx-x,by-y);
+    if(dd<bd){bd=dd;best=c;}
+  }
+  if(best && bd<44*dpr){ game.targetId=best.id; game.lockProg=0; game.locked=false; blip(760,0.05,'square'); }
+},{passive:false});
 
 /* Off-screen / on-screen objective marker */
 function xform4(m,v){
@@ -1218,39 +1394,64 @@ function xform4(m,v){
           m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14],
           m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]];
 }
-function drawWaypoint(){
-  const el=$('waypoint'); if(!el) return;
-  const tgt=nearestTarget();
-  if(!tgt || !cam.VP){ el.style.display='none'; return; }
-  const c=xform4(cam.VP,tgt.pos);
-  let sx,sy,onScreen=false,front=c[3]>0.0001;
-  if(front){
-    const ndcx=c[0]/c[3], ndcy=c[1]/c[3], ndcz=c[2]/c[3];
-    sx=(ndcx*0.5+0.5)*vw; sy=(1-(ndcy*0.5+0.5))*vh;
-    if(ndcz>=-1&&ndcz<=1&&sx>34&&sx<vw-34&&sy>34&&sy<vh-34) onScreen=true;
+function projectPoint(pos){
+  if(!cam.VP) return null;
+  const c=xform4(cam.VP,pos);
+  if(c[3]<=0.0001) return {front:false,onScreen:false,x:0,y:0};
+  const ndcx=c[0]/c[3], ndcy=c[1]/c[3], ndcz=c[2]/c[3];
+  return {front:true, onScreen:ndcz>=-1&&ndcz<=1,
+    x:(ndcx*0.5+0.5)*vw, y:(1-(ndcy*0.5+0.5))*vh};
+}
+function offscreenAngle(front,pr,rel){
+  if(front) return Math.atan2(pr.y-vh/2, pr.x-vw/2);
+  const fwd=shipForward();
+  let ref=[0,1,0]; if(Math.abs(V.dot(fwd,ref))>0.99) ref=[0,0,1];
+  let right=V.cross(fwd,ref); right=V.len(right)>1e-4?V.norm(right):[1,0,0];
+  return Math.atan2(V.dot(rel,fwd), V.dot(rel,right)); // behind => negative y
+}
+function updateTargetUI(){
+  const box=$('targetBox'), pip=$('leadPip'), wp=$('waypoint');
+  if(!box||!wp) return;
+  const t=currentTarget();
+  if(!t){
+    box.style.display='none'; wp.style.display='none';
+    if(pip) pip.style.display='none';
+    return;
   }
+  const pr=projectPoint(t.pos);
+  const m=42;
+  const onScreen = pr && pr.front && pr.onScreen && pr.x>m && pr.x<vw-m && pr.y>m && pr.y<vh-m;
+
+  // on-screen bracket
+  if(onScreen){
+    box.style.display='block';
+    box.style.left=pr.x+'px'; box.style.top=pr.y+'px';
+    box.className = t.hostile ? (game.locked?'locked':'hostile') : 'nav';
+  } else box.style.display='none';
+
+  // off-screen directional arrow
   if(!onScreen){
-    let dx,dy;
-    if(front){ dx=sx-vw/2; dy=sy-vh/2; }
-    else{
-      const rel=V.sub(tgt.pos,ship.pos);
-      const fwd=shipForward();
-      let ref=[0,1,0];
-      if(Math.abs(V.dot(fwd,ref))>0.99) ref=[0,0,1];
-      let right=V.cross(fwd,ref); right=V.len(right)>1e-4?V.norm(right):[1,0,0];
-      dx=V.dot(rel,right);
-      dy=fwd[0]*rel[0]+fwd[1]*rel[1]+fwd[2]*rel[2]; // behind => negative
-    }
-    const ang=Math.atan2(dy,dx);
-    const m=Math.min(vw,vh)*0.40;
-    sx=vw/2+Math.cos(ang)*m; sy=vh/2+Math.sin(ang)*m;
+    const rel=V.sub(t.pos,ship.pos);
+    const ang=offscreenAngle(pr&&pr.front,pr,rel);
+    const R=Math.min(vw,vh)*0.40;
+    wp.style.display='block';
+    wp.style.left=(vw/2+Math.cos(ang)*R)+'px';
+    wp.style.top=(vh/2+Math.sin(ang)*R)+'px';
+    const dEl=wp.querySelector&&wp.querySelector('.dist');
+    if(dEl) dEl.textContent=(V.len(rel)/1000).toFixed(2)+'km';
+  } else wp.style.display='none';
+
+  // lead indicator for a locked hostile
+  if(pip){
+    if(t.hostile && game.locked){
+      const lp=leadPoint(t);
+      const lpr=lp&&projectPoint(lp);
+      if(lpr && lpr.front && lpr.onScreen){
+        pip.style.display='block';
+        pip.style.left=lpr.x+'px'; pip.style.top=lpr.y+'px';
+      } else pip.style.display='none';
+    } else pip.style.display='none';
   }
-  el.style.display='block';
-  el.style.left=sx+'px';
-  el.style.top=sy+'px';
-  const dist=V.len(V.sub(tgt.pos,ship.pos));
-  const dEl=el.querySelector&&el.querySelector('.dist');
-  if(dEl) dEl.textContent=(dist/1000).toFixed(2)+'km';
 }
 
 /* ----------------------------- DOCKING (M6) ------------------------------ */
@@ -1537,9 +1738,10 @@ function frame(now){
 
   if(game.state===STATE.FLIGHT){
     updateSystem(dt);
-    updatePirate(dt);
+    updateEnemies(dt);
     updateProjectiles(dt);
     updateShip(dt);
+    updateTargeting(dt);
     checkDocking();
   } else if(game.state===STATE.DOCKING){
     updateDocking(dt);
@@ -1547,11 +1749,12 @@ function frame(now){
     updateWarp(dt);
   }
   if(game.state===STATE.FLIGHT||game.state===STATE.DOCKING||game.state===STATE.DEAD){
+    buildContacts();
     updateCamera(dt);
     render();
     updateHUD(dt);
     drawRadar();
-    drawWaypoint();
+    updateTargetUI();
     updateAudio();
   }
 }
