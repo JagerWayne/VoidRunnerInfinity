@@ -3,7 +3,10 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.17 · PODS (current)
+## 1.18 · POD PRICES (current)
+- Cargo pods cost more: **20K** standard (+10), **30K** Pro (+15).
+
+## 1.17 · PODS
 - Buy **cargo pods** at stations (**PODS** button in the market).
 - 3 slots: **left wing**, **right wing**, **under the fuselage**.
 - Standard pod **+10**, Pro pod **+15**; fitted pods appear on the ship.

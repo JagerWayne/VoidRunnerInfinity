@@ -1160,7 +1160,7 @@ const game={
 };
 // Cargo pods: 3 slots (left wing / right wing / centre), standard or Pro.
 const POD_CAP={0:0,1:10,2:15};
-const POD_PRICE={1:2500,2:6000};
+const POD_PRICE={1:20000,2:30000};
 const POD_NAMES={0:'EMPTY',1:'STD (+10)',2:'PRO (+15)'};
 function cargoCap(){ let c=game.cargoMax; for(const k in game.pods) c+=POD_CAP[game.pods[k]]||0; return c; }
 // User-adjustable HUD options
@@ -3050,9 +3050,12 @@ $('closeGalaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeG
 $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
 
 /* ----------------------------- CHANGELOG --------------------------------- */
-const VERSION='1.17';
+const VERSION='1.18';
 const CHANGELOG=[
-  {v:'1.17 \u00b7 PODS (current)', items:[
+  {v:'1.18 \u00b7 POD PRICES (current)', items:[
+    'Cargo pods now cost more: 20K for standard (+10), 30K for Pro (+15)',
+  ]},
+  {v:'1.17 \u00b7 PODS', items:[
     'Buy cargo pods at stations (PODS button in the market)',
     '3 slots: left wing, right wing and under the fuselage',
     'Standard pod +10, Pro pod +15; fitted pods appear on the ship',
@@ -3234,10 +3237,10 @@ function renderPods(){
     const cur=game.pods[key];
     const row=document.createElement('div'); row.className='mktRow';
     row.innerHTML='<span class="name">'+label+'<br><span class="hold">'+POD_NAMES[cur]+'</span></span>';
-    const b1=document.createElement('button'); b1.textContent='+10'; b1.style.width='auto'; b1.style.padding='0 8px';
+    const b1=document.createElement('button'); b1.textContent='+10  '+(POD_PRICE[1]/1000)+'K'; b1.style.width='auto'; b1.style.padding='0 8px';
     if(cur===1) b1.classList.add('on');
     b1.addEventListener('pointerdown',e=>{e.preventDefault();buyPod(key,1);},{passive:false});
-    const b2=document.createElement('button'); b2.textContent='+15 PRO'; b2.style.width='auto'; b2.style.padding='0 8px';
+    const b2=document.createElement('button'); b2.textContent='+15  '+(POD_PRICE[2]/1000)+'K'; b2.style.width='auto'; b2.style.padding='0 8px';
     if(cur===2) b2.classList.add('on');
     b2.addEventListener('pointerdown',e=>{e.preventDefault();buyPod(key,2);},{passive:false});
     row.appendChild(b1); row.appendChild(b2);
