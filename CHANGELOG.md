@@ -3,7 +3,15 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.11 · COMBAT (current)
+## 1.12 · HUD & AI (current)
+- Top row: **ship details** (left), **radar** (centre), **target details** (right).
+- **Click the radar** to open the target list (defaults to **ALL**).
+- **LOCATE TARGET** button under the radar turns the ship onto the target.
+- New deck: **Roll / Throttle / FA+Boost / big FIRE**.
+- **HAIL, MINE, LAND** share the right-side action slot.
+- Enemy **respawn time depends on the system** (quiet systems take longer).
+
+## 1.11 · COMBAT
 - Reticle turns **white** when the target is in your rear hemisphere.
 - Enemy AI presses the attack on a **stationary player** (no more endless orbiting).
 - Enemies slow into hard turns and fire on the intercept.
