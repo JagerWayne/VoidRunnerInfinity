@@ -3,7 +3,14 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.18 · POD PRICES (current)
+## 1.19 · SHIPYARD & EVA (current)
+- Perf: **matrix scratch-pooling** (no per-frame matrix allocations).
+- Perf: **render culling** (skip off-screen asteroids/rocks/POIs/enemies).
+- **SHIPYARD**: upgrade weapons, shields, engines and hull.
+- **Missiles** (lock a hostile to fire) and **flares** to decoy enemy missiles.
+- **Derelict EVA**: board a wreck, scavenge salvage and find the exit.
+
+## 1.18 · POD PRICES
 - Cargo pods cost more: **20K** standard (+10), **30K** Pro (+15).
 
 ## 1.17 · PODS

@@ -238,6 +238,18 @@
     background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
   #pods .footer button.primary { background:#2b9fd0; color:#02141d; }
 
+  /* Shipyard */
+  #shipyard { position:fixed; inset:0; z-index:47; background:rgba(3,10,18,0.98);
+    padding:16px; display:flex; flex-direction:column; gap:10px; }
+  #shipyard h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  #shipyard .stats { display:flex; justify-content:space-between; font-size:12px; }
+  #shipyard .footer { display:flex; gap:10px; }
+  #shipyard .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #shipyard .footer button.primary { background:#2b9fd0; color:#02141d; }
+  .lvlDots { color:#ffd166; letter-spacing:2px; }
+
   /* HUD size + compact options */
   #hud.size-s .btn { height:46px; font-size:9px; }
   #hud.size-s .btn.fire { height:64px; font-size:14px; }
@@ -325,6 +337,7 @@
   #hud.surface-mode #waypoint, #hud.surface-mode #contractPanel, #hud.surface-mode #buttons,
   #hud.surface-mode #locateBtn, #hud.surface-mode #galaxyBtn, #hud.surface-mode #resPanel,
   #hud.surface-mode #actionBar, #hud.surface-mode #settingsBtn { display:none !important; }
+  #hud.eva-mode #sfcMapWrap { display:none !important; }
   #sfcPanel { display:none; position:absolute; top:8px; left:8px; right:140px; text-align:left; }
   #hud.surface-mode #sfcPanel { display:block; }
   #sfcPanel .val { font-size:11px; }
@@ -404,6 +417,9 @@
   </div>
 
   <div id="actionBar">
+    <button id="boardBtn" style="display:none">BOARD WRECK</button>
+    <button id="missileBtn" style="display:none">MISSILE</button>
+    <button id="flareBtn" style="display:none">FLARES</button>
     <button id="hailBtn" style="display:none">HAIL</button>
     <button id="mineBtn" style="display:none">MINE</button>
     <button id="landBtn">LAND</button>
@@ -475,6 +491,7 @@
   <div class="footer">
     <button id="contractsBtn">CONTRACTS</button>
     <button id="podsBtn">PODS</button>
+    <button id="shipyardBtn">SHIPYARD</button>
     <button id="undockBtn">LEAVE</button>
   </div>
 </div>
@@ -523,6 +540,17 @@
   <h2>CHANGELOG</h2>
   <div id="changelogList" class="clog"></div>
   <div class="footer"><button id="closeChangelogBtn" class="primary">BACK</button></div>
+</div>
+
+<div id="shipyard" class="hidden">
+  <h2>SHIPYARD</h2>
+  <div class="stats">
+    <span><span class="lbl">CR</span> <span class="val" id="yardCr">0</span></span>
+    <span><span class="lbl">HULL</span> <span class="val" id="yardHull">100</span>
+          <span class="lbl">SHIELD</span> <span class="val" id="yardShield">100</span></span>
+  </div>
+  <div class="mktTable" id="yardList"></div>
+  <div class="footer"><button id="closeYardBtn" class="primary">BACK</button></div>
 </div>
 
 <div id="pods" class="hidden">
@@ -648,14 +676,23 @@ function m4Mul(a,b){
   }
   return o;
 }
+// In-place multiply (no allocation) for per-draw matrices.
+function mulInto(o,a,b){
+  for(let c=0;c<4;c++)for(let r=0;r<4;r++){
+    o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
+  }
+  return o;
+}
+// Reusable scratch matrices (draw calls consume them immediately).
+const _modelScratch=new Float32Array(16), _mvpScratch=new Float32Array(16);
 function m4Compose(pos,q,s){
   s=s||1;
-  const [x,y,z,w]=q;
-  return new Float32Array([
-    (1-2*(y*y+z*z))*s, 2*(x*y+w*z)*s, 2*(x*z-w*y)*s, 0,
-    2*(x*y-w*z)*s, (1-2*(x*x+z*z))*s, 2*(y*z+w*x)*s, 0,
-    2*(x*z+w*y)*s, 2*(y*z-w*x)*s, (1-2*(x*x+y*y))*s, 0,
-    pos[0],pos[1],pos[2],1]);
+  const [x,y,z,w]=q, o=_modelScratch;
+  o[0]=(1-2*(y*y+z*z))*s; o[1]=2*(x*y+w*z)*s; o[2]=2*(x*z-w*y)*s; o[3]=0;
+  o[4]=2*(x*y-w*z)*s; o[5]=(1-2*(x*x+z*z))*s; o[6]=2*(y*z+w*x)*s; o[7]=0;
+  o[8]=2*(x*z+w*y)*s; o[9]=2*(y*z-w*x)*s; o[10]=(1-2*(x*x+y*y))*s; o[11]=0;
+  o[12]=pos[0]; o[13]=pos[1]; o[14]=pos[2]; o[15]=1;
+  return o;
 }
 
 /* ----------------------------- PRNG -------------------------------------- */
@@ -783,7 +820,7 @@ function drawSolid(mesh,M,VP,color){
   gl.vertexAttribPointer(SA_NRM,3,gl.FLOAT,false,24,12);
   gl.enableVertexAttribArray(SA_POS);
   gl.enableVertexAttribArray(SA_NRM);
-  gl.uniformMatrix4fv(SU_MVP,false,m4Mul(VP,M));
+  gl.uniformMatrix4fv(SU_MVP,false,mulInto(_mvpScratch,VP,M));
   gl.uniformMatrix4fv(SU_MODEL,false,M);
   gl.uniform3fv(SU_COLOR,color);
   gl.uniform3fv(SU_LIGHT,LIGHT_DIR);
@@ -843,7 +880,7 @@ function drawTerrainMesh(mesh,M,VP,tint){
   gl.enableVertexAttribArray(TA_POS);
   gl.enableVertexAttribArray(TA_NRM);
   gl.enableVertexAttribArray(TA_COL);
-  gl.uniformMatrix4fv(TU_MVP,false,m4Mul(VP,M));
+  gl.uniformMatrix4fv(TU_MVP,false,mulInto(_mvpScratch,VP,M));
   gl.uniformMatrix4fv(TU_MODEL,false,M);
   gl.uniform3fv(TU_LIGHT,LIGHT_DIR);
   gl.uniform3fv(TU_TINT,tint||[1,1,1]);
@@ -972,6 +1009,8 @@ const MESHes={
   body:makeSolidMesh(cubeTris(1.4,3.2,1.4)),
   head:makeSolidMesh(cubeTris(0.9,0.9,0.9)),
   pod:makeSolidMesh(cubeTris(1.5,1.1,3.8)),
+  evaWall:makeSolidMesh(cubeTris(5,6,5)),
+  evaFloor:makeSolidMesh(cubeTris(150,1,150)),
 };
 // Draw fitted cargo pods on the wings + under the fuselage.
 const POD_OFFSETS={left:[-6.6,-0.6,3.2],right:[6.6,-0.6,3.2],center:[0,-2.7,2.0]};
@@ -1138,7 +1177,7 @@ window.addEventListener('orientationchange',()=>setTimeout(resize,120));
 resize();
 
 /* ----------------------------- GAME STATE -------------------------------- */
-const STATE={BOOT:0,FLIGHT:1,DOCKING:2,DOCKED:3,DEAD:4,WARP:5,MAP:6,TRADE:7,TARGETS:8,SURFACE:9,CARGO:10};
+const STATE={BOOT:0,FLIGHT:1,DOCKING:2,DOCKED:3,DEAD:4,WARP:5,MAP:6,TRADE:7,TARGETS:8,SURFACE:9,CARGO:10,EVA:11};
 const game={
   state:STATE.BOOT,
   time:0,
@@ -1146,6 +1185,7 @@ const game={
   fuel:100,
   cargoMax:20,                     // base hold
   pods:{left:0,right:0,center:0},  // fitted cargo pods: 0 none, 1 standard(+10), 2 pro(+15)
+  upgrades:{weapons:0,shields:0,engines:0,hull:0},
   cargo:{},
   heat:0,
   toastT:0,
@@ -1163,6 +1203,19 @@ const POD_CAP={0:0,1:10,2:15};
 const POD_PRICE={1:20000,2:30000};
 const POD_NAMES={0:'EMPTY',1:'STD (+10)',2:'PRO (+15)'};
 function cargoCap(){ let c=game.cargoMax; for(const k in game.pods) c+=POD_CAP[game.pods[k]]||0; return c; }
+// Ship upgrades (buy at the shipyard)
+const UPGRADES=[
+  {key:'weapons',name:'WEAPONS',desc:'+25% damage / level'},
+  {key:'shields',name:'SHIELDS',desc:'+40 shield / level'},
+  {key:'engines',name:'ENGINES',desc:'+12% speed / level'},
+  {key:'hull',   name:'HULL',   desc:'+40 hull / level'},
+];
+const UPGRADE_COST=[0,8000,22000,50000];   // cost to reach level index
+const UPGRADE_MAX=3;
+function dmgMul(){ return 1+game.upgrades.weapons*0.25; }
+function effShieldMax(){ return 100+game.upgrades.shields*40; }
+function effHullMax(){ return 100+game.upgrades.hull*40; }
+function speedUpMul(){ return 1+game.upgrades.engines*0.12; }
 // User-adjustable HUD options
 const settings={compact:false,opacity:1,size:'m'};
 
@@ -1301,7 +1354,14 @@ function generateSystem(gx,gz){
 
   const traderCount = type==='inhabited' ? 1+((rnd()*2)|0) : (type==='pirate' ? 1 : 0);
 
-  return {gx,gz,name,type,danger,sun,planets,station,asteroids,traderCount,
+  // A boardable derelict wreck in some systems.
+  let derelict=null;
+  if(type==='abandoned' || (type!=='inhabited' && rnd()<0.45)){
+    const o=2600+rnd()*2600, a=rnd()*Math.PI*2;
+    derelict={pos:[Math.cos(a)*o,(rnd()-0.5)*400,Math.sin(a)*o],quat:qAxisAngle([0,1,0],rnd()*6),r:42};
+  }
+
+  return {gx,gz,name,type,danger,sun,planets,station,asteroids,traderCount,derelict,
     start:{pos:startPos,quat:startQuat}};
 }
 function getSystem(gx,gz){
@@ -1312,6 +1372,9 @@ function getSystem(gx,gz){
 
 /* ----------------------------- COMBAT ENTITIES (M5) ---------------------- */
 const projectiles=[];
+const missiles=[], flares=[];
+let missileCd=0;
+const MISSILE={ speed:300, turn:2.4, life:6.5, dmg:45, enemyDmg:18, cd:3.5 };
 const COMBAT={ boltSpeed:700, boltLife:2.2, boltDmg:9, fireCd:0.14 };
 const MAX_ENEMIES=3;
 let wave=0, enemySeq=0, enemyRespawnTimer=null;
@@ -1340,7 +1403,7 @@ function makeEnemy(i,count){
     hull:hullMax, hullMax, shield:shieldMax, shieldMax,
     hitT:0, alive:true, radius:14, fireCd:0.6+Math.random()*1.2,
     speed, turnRate:1.35+Math.random()*0.55, state:'PURSUE', t:0,
-    burst:0, bank:0,
+    burst:0, bank:0, missileCd:8+Math.random()*10,
   };
 }
 function resetEnemies(){
@@ -1449,7 +1512,7 @@ function placeShipAtStart(){
   ship.pos=system.start.pos.slice();
   ship.quat=system.start.quat.slice();
   ship.vel=[0,0,0]; ship.angVel=[0,0,0]; ship.throttle=0.5;
-  ship.hull=100; ship.shield=100; ship.alive=true; ship.hitT=0; ship.colCd=0;
+  ship.hull=effHullMax(); ship.shield=effShieldMax(); ship.alive=true; ship.hitT=0; ship.colCd=0;
   ship.boost=100; ship.heat=0; ship.fireCd=0;
 }
 function loadSystem(gx,gz){
@@ -1543,6 +1606,9 @@ document.getElementById('radarWrap').addEventListener('pointerdown',e=>{e.preven
 document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();input.jump=true;},{passive:false});
 document.getElementById('sfcActionBtn').addEventListener('pointerdown',e=>{e.preventDefault();sfcAction();},{passive:false});
 document.getElementById('sfcExitBtn').addEventListener('pointerdown',e=>{e.preventDefault();sfcExitShip();},{passive:false});
+document.getElementById('missileBtn').addEventListener('pointerdown',e=>{e.preventDefault();fireMissile();},{passive:false});
+document.getElementById('flareBtn').addEventListener('pointerdown',e=>{e.preventDefault();dropFlares();},{passive:false});
+document.getElementById('boardBtn').addEventListener('pointerdown',e=>{e.preventDefault();enterEVA();},{passive:false});
 document.getElementById('landBtn').addEventListener('pointerdown',e=>{e.preventDefault();tryLand();},{passive:false});
 (function(){
   const b=document.getElementById('sprintBtn');
@@ -1761,7 +1827,7 @@ function updateShip(dt){
 
   const fwd=shipForward();
   const engMul=1+(game.pips.eng-2)*0.05;                // ENG pips -> top speed (neutral at 2)
-  const speed=MAX_SPEED*ship.throttle*(boosting?BOOST_MULT:1)*engMul;
+  const speed=MAX_SPEED*ship.throttle*(boosting?BOOST_MULT:1)*engMul*speedUpMul();
   const desired=V.scale(fwd,speed);
   if(ship.faOn){
     ship.vel=V.lerp(ship.vel,desired,1-Math.exp(-2.5*dt));
@@ -1807,7 +1873,7 @@ function updateShip(dt){
 
   // shield/hull regen
   ship.hitT=Math.max(0,ship.hitT-dt);
-  if(ship.hitT<=0) ship.shield=Math.min(100,ship.shield+(4+(game.pips.sys-2)*1.5)*dt);  // SYS pips -> shield regen
+  if(ship.hitT<=0) ship.shield=Math.min(effShieldMax(),ship.shield+(4+(game.pips.sys-2)*1.5)*dt);  // SYS pips -> shield regen
   if(ship.hull<=0) destroyPlayer();
   if(ship.heat>95) ship.hull=Math.max(0,ship.hull-6*dt);
 }
@@ -1846,14 +1912,14 @@ function updateProjectiles(dt){
         if(t>=0){
           const hp=segPoint(p0,p1,t);
           FX.impact(hp,e.shield>0);
-          damageEnemy(e,COMBAT.boltDmg); dead=true; break;
+          damageEnemy(e,COMBAT.boltDmg*dmgMul()); dead=true; break;
         }
       }
       if(!dead){
         for(const tr of traders){
           if(!tr.alive) continue;
           const t=raySphere(p0,p1,tr.pos,tr.radius);
-          if(t>=0){ const hp=segPoint(p0,p1,t); FX.impact(hp,tr.shield>0); damageTrader(tr,COMBAT.boltDmg); dead=true; break; }
+          if(t>=0){ const hp=segPoint(p0,p1,t); FX.impact(hp,tr.shield>0); damageTrader(tr,COMBAT.boltDmg*dmgMul()); dead=true; break; }
         }
       }
     }
@@ -1876,6 +1942,61 @@ function updateProjectiles(dt){
     if(dead) projectiles.splice(i,1);
   }
   if(projectiles.length>240) projectiles.splice(0,projectiles.length-240);
+}
+
+/* ----------------------------- MISSILES & FLARES ------------------------- */
+function fireMissile(){
+  if(game.state!==STATE.FLIGHT) return;
+  if(missileCd>0){ toast('MISSILE RELOADING'); return; }
+  const t=currentTarget();
+  if(!t || !t.hostile || !t.ref){ toast('LOCK A HOSTILE FIRST'); return; }
+  const fwd=shipForward();
+  missiles.push({ team:'player', pos:V.add(ship.pos,V.scale(fwd,10)),
+    vel:V.add(ship.vel,V.scale(fwd,MISSILE.speed)), life:MISSILE.life, targetId:t.id, dmg:MISSILE.dmg });
+  missileCd=MISSILE.cd;
+  blip(320,0.25,'sawtooth'); toast('MISSILE AWAY'); vibrate(20);
+}
+function dropFlares(){
+  if(game.state!==STATE.FLIGHT) return;
+  const fwd=shipForward();
+  for(let i=0;i<6;i++){
+    flares.push({ pos:V.add(ship.pos,V.scale(fwd,-6)),
+      vel:V.add(ship.vel,[(Math.random()-0.5)*70,(Math.random()-0.5)*70,(Math.random()-0.5)*70]),
+      life:3+Math.random()*2 });
+  }
+  blip(220,0.3,'square'); toast('FLARES OUT');
+}
+function updateMissiles(dt){
+  missileCd=Math.max(0,missileCd-dt);
+  for(let i=flares.length-1;i>=0;i--){ const f=flares[i]; f.life-=dt; f.pos=V.add(f.pos,V.scale(f.vel,dt)); if(f.life<=0) flares.splice(i,1); }
+  for(let i=missiles.length-1;i>=0;i--){
+    const m=missiles[i];
+    let tp=null;
+    if(m.team==='player'){
+      const e=enemies.find(x=>x.id===m.targetId && x.alive); if(e) tp=e.pos;
+    } else {
+      // enemy missiles can be decoyed by the nearest flare
+      let best=null,bd=1e9;
+      for(const f of flares){ const d=V.len(V.sub(f.pos,m.pos)); if(d<bd){bd=d;best=f;} }
+      tp=(best && bd<500) ? best.pos : ship.pos;
+    }
+    if(tp){
+      const sp=V.len(m.vel)||MISSILE.speed;
+      m.vel=V.scale(steerDir(V.norm(m.vel),V.norm(V.sub(tp,m.pos)),MISSILE.turn,dt),sp);
+    }
+    const p0=m.pos, p1=V.add(m.pos,V.scale(m.vel,dt));
+    m.pos=p1; m.life-=dt;
+    let dead=m.life<=0;
+    if(!dead && m.team==='player'){
+      for(const e of enemies){ if(!e.alive) continue; if(raySphere(p0,p1,e.pos,e.radius)>=0){ FX.explosion(e.pos,1.4,[1,0.5,0.2]); damageEnemy(e,m.dmg*dmgMul()); dead=true; break; } }
+    }
+    if(!dead && m.team==='enemy' && ship.alive){
+      if(raySphere(p0,p1,ship.pos,ship.radius)>=0){ FX.explosion(ship.pos,1.2,[1,0.5,0.2]); damagePlayer(m.enemyDmg!==undefined?m.enemyDmg:m.dmg); dead=true; }
+    }
+    if(Math.random()<dt*40) spawnParticle(m.pos[0],m.pos[1],m.pos[2],0,0,0,0.4,1.0,0.75,0.3,3,0.9);
+    if(dead) missiles.splice(i,1);
+  }
+  for(const f of flares){ if(Math.random()<dt*30) spawnParticle(f.pos[0],f.pos[1],f.pos[2],0,0,0,0.3,1.0,0.85,0.3,3,0.92); }
 }
 
 function damagePlayer(dmg){
@@ -2055,6 +2176,13 @@ function updateEnemies(dt){
         else e.fireCd=0.12;
       }
     } else e.burst=0;
+    // ---- occasional homing missile in dangerous systems ----
+    e.missileCd=(e.missileCd||0)-dt;
+    if(system.danger>=2 && dist<1100 && aim>0.9 && e.missileCd<=0 && ship.alive){
+      missiles.push({team:'enemy',pos:V.add(e.pos,V.scale(fwd,8)),vel:V.add(e.vel,V.scale(fwd,180)),life:MISSILE.life,targetId:null,dmg:MISSILE.enemyDmg});
+      e.missileCd=14+Math.random()*10;
+      toast('INCOMING MISSILE'); blip(180,0.4,'square'); vibrate(30);
+    }
   }
   for(let i=enemies.length-1;i>=0;i--) if(!enemies[i].alive) enemies.splice(i,1);
 }
@@ -2217,6 +2345,7 @@ function render(){
 
   // asteroids (solid, tinted by resource; darker when nearly depleted)
   for(const a of system.asteroids){
+    if(!visible(a.pos)) continue;
     let col=asteroidColor(a);
     if(a.amount<=2 && !a.depleted) col=[col[0]*0.5,col[1]*0.5,col[2]*0.5];
     drawSolid(MESHes.asteroid,m4Compose(a.pos,a.quat,a.r/70),VP,col);
@@ -2227,17 +2356,21 @@ function render(){
     const col = system.station.market ? [0.35,1.0,0.8] : [1.0,0.55,0.2];
     drawSolid(MESHes.station,m4Compose(system.station.pos,system.station.quat,1),VP,col);
   }
+  // boardable derelict wreck
+  if(system.derelict && visible(system.derelict.pos)){
+    drawTerrainMesh(MESHes.ship,m4Compose(system.derelict.pos,system.derelict.quat,2.6),VP,[0.34,0.34,0.40]);
+  }
 
   // hostiles (red panels, brighter when targeted, white flash when hit)
   for(const e of enemies){
-    if(!e.alive) continue;
+    if(!e.alive || !visible(e.pos)) continue;
     let tint=e.hitT>1.1?[3.0,3.0,3.0]:(game.targetId===e.id?[1.35,1.35,1.35]:[1,1,1]);
     drawTerrainMesh(MESHes.enemyShip,m4Compose(e.pos,e.quat,1.2),VP,tint);
   }
 
   // traders (amber haulers)
   for(const tr of traders){
-    if(!tr.alive) continue;
+    if(!tr.alive || !visible(tr.pos)) continue;
     let tint=tr.hitT>1.1?[3.0,3.0,3.0]:(game.targetId===tr.id?[1.3,1.3,1.3]:[1,1,1]);
     drawTerrainMesh(MESHes.traderShip,m4Compose(tr.pos,tr.quat,1.6),VP,tint);
   }
@@ -2249,7 +2382,13 @@ function render(){
 
   // projectiles (solid bolts)
   for(const p of projectiles){
-    drawMesh(MESHes.bolt,m4Mul(VP,m4Compose(p.pos,qIdent(),1)),p.color,1.0,8);
+    drawMesh(MESHes.bolt,mulInto(_mvpScratch,VP,m4Compose(p.pos,qIdent(),1)),p.color,1.0,8);
+  }
+  for(const m of missiles){
+    drawMesh(MESHes.bolt,mulInto(_mvpScratch,VP,m4Compose(m.pos,qIdent(),1)),m.team==='player'?[0.5,1.0,0.6]:[1.0,0.5,0.15],1.0,9);
+  }
+  for(const f of flares){
+    drawMesh(MESHes.bolt,mulInto(_mvpScratch,VP,m4Compose(f.pos,qIdent(),1)),[1.0,0.9,0.3],1.0,7);
   }
 
   // ship (hidden while destroyed)
@@ -2275,8 +2414,8 @@ function updateHUD(dt){
   setText('cargoVal',load+'/'+cargoCap());
   setText('creditsVal',game.credits.toLocaleString());
   setText('fuelVal',Math.round(game.fuel)+'%');
-  setText('hullVal',Math.round(ship.hull)+'%');
-  setText('shieldVal',Math.round(ship.shield)+'%');
+  setText('hullVal',Math.round(ship.hull/effHullMax()*100)+'%');
+  setText('shieldVal',Math.round(ship.shield/effShieldMax()*100)+'%');
   setText('thrVal',Math.round(ship.throttle*100)+'%');
   const t=currentTarget();
   const tp=$('targetPanel');
@@ -2343,6 +2482,7 @@ function buildContacts(){
     if(V.len(V.sub(a.pos,ship.pos))>4500) continue; // only nearby rocks are targetable
     contacts.push({id:a.id,kind:'ASTEROID',name:a.resName+' ASTEROID',pos:a.pos,vel:[0,0,0],hostile:false,ref:a});
   }
+  if(system.derelict) contacts.push({id:'wreck',kind:'DERELICT',name:'DERELICT WRECK',pos:system.derelict.pos,vel:[0,0,0],hostile:false,ref:system.derelict});
   return contacts;
 }
 function contactById(id){ for(const c of contacts) if(c.id===id) return c; return null; }
@@ -2494,6 +2634,7 @@ function drawRadar(){
   for(const e of enemies) if(e.alive) blip(e.pos,'#ff5a6e');
   for(const tr of traders) if(tr.alive) blip(tr.pos,'#ffd166');
   for(const a of system.asteroids) if(!a.depleted) blip(a.pos,'#8a9aa6');
+  if(system.derelict) blip(system.derelict.pos,'#b08cff');
   for(const p of projectiles) blip(p.pos,p.team==='player'?'#bff4ff':'#ff8a9a');
   // highlight the selected target
   const t=currentTarget();
@@ -2519,6 +2660,14 @@ function xform4(m,v){
           m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13],
           m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14],
           m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]];
+}
+// Cheap frustum test: is a world point roughly within the view? (render culling)
+function visible(pos){
+  if(!cam.VP) return true;
+  const c=xform4(cam.VP,pos);
+  if(c[3]<=0.0001) return false;               // behind the camera
+  const x=c[0]/c[3], y=c[1]/c[3], z=c[2]/c[3];
+  return x>-1.5 && x<1.5 && y>-1.5 && y<1.5 && z>-1.3 && z<1.2;
 }
 function projectPoint(pos){
   if(!cam.VP) return null;
@@ -2903,7 +3052,7 @@ function saveGame(){
       credits:game.credits, cargo:game.cargo, fuel:game.fuel,
       gx:current.gx, gz:current.gz,
       kills:game.kills, bounty:game.bounty, pips:game.pips, pods:game.pods,
-      settings:settings
+      upgrades:game.upgrades, settings:settings
     }));
   }catch(e){}
 }
@@ -2919,6 +3068,7 @@ function loadGame(){
     if(typeof d.bounty==='number') game.bounty=d.bounty;
     if(d.pips&&typeof d.pips==='object') game.pips=d.pips;
     if(d.pods&&typeof d.pods==='object'){ game.pods={left:d.pods.left|0,right:d.pods.right|0,center:d.pods.center|0}; }
+    if(d.upgrades&&typeof d.upgrades==='object'){ game.upgrades={weapons:d.upgrades.weapons|0,shields:d.upgrades.shields|0,engines:d.upgrades.engines|0,hull:d.upgrades.hull|0}; }
     if(d.settings&&typeof d.settings==='object'){ settings.compact=!!d.settings.compact; settings.opacity=d.settings.opacity||1; settings.size=d.settings.size||'m'; }
   }catch(e){}
 }
@@ -3050,9 +3200,16 @@ $('closeGalaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeG
 $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
 
 /* ----------------------------- CHANGELOG --------------------------------- */
-const VERSION='1.18';
+const VERSION='1.19';
 const CHANGELOG=[
-  {v:'1.18 \u00b7 POD PRICES (current)', items:[
+  {v:'1.19 \u00b7 SHIPYARD & EVA (current)', items:[
+    'Perf: matrix scratch-pooling (no per-frame matrix allocations)',
+    'Perf: render culling (skip off-screen asteroids/rocks/POIs/enemies)',
+    'SHIPYARD: upgrade weapons, shields, engines and hull',
+    'Missiles (lock a hostile to fire) and flares to decoy enemy missiles',
+    'Derelict EVA: board a wreck, scavenge salvage and find the exit',
+  ]},
+  {v:'1.18 \u00b7 POD PRICES', items:[
     'Cargo pods now cost more: 20K for standard (+10), 30K for Pro (+15)',
   ]},
   {v:'1.17 \u00b7 PODS', items:[
@@ -3261,6 +3418,44 @@ function openPods(){ $('market').classList.add('hidden'); $('pods').classList.re
 function closePods(){ $('pods').classList.add('hidden'); $('market').classList.remove('hidden'); renderMarket(); }
 $('podsBtn').addEventListener('pointerdown',e=>{e.preventDefault();openPods();},{passive:false});
 $('closePodsBtn').addEventListener('pointerdown',e=>{e.preventDefault();closePods();},{passive:false});
+
+/* ----------------------------- SHIPYARD ---------------------------------- */
+function renderShipyard(){
+  setText('yardCr',game.credits.toLocaleString());
+  setText('yardHull',effHullMax());
+  setText('yardShield',effShieldMax());
+  const list=$('yardList'); if(!list) return;
+  list.innerHTML='';
+  for(const u of UPGRADES){
+    const lvl=game.upgrades[u.key];
+    const dots='\u25CF'.repeat(lvl)+'\u25CB'.repeat(UPGRADE_MAX-lvl);
+    const row=document.createElement('div'); row.className='mktRow';
+    row.innerHTML='<span class="name">'+u.name+' <span class="lvlDots">'+dots+'</span><br><span class="hold">'+u.desc+'</span></span>';
+    if(lvl>=UPGRADE_MAX){ const t=document.createElement('span'); t.className='price'; t.textContent='MAX'; row.appendChild(t); }
+    else{
+      const cost=UPGRADE_COST[lvl+1];
+      const b=document.createElement('button'); b.textContent=(cost/1000)+'K'; b.style.width='auto'; b.style.padding='0 8px';
+      b.addEventListener('pointerdown',e=>{e.preventDefault();buyUpgrade(u.key);},{passive:false});
+      row.appendChild(b);
+    }
+    list.appendChild(row);
+  }
+}
+function buyUpgrade(key){
+  const lvl=game.upgrades[key];
+  if(lvl>=UPGRADE_MAX){ toast('ALREADY MAX'); return; }
+  const cost=UPGRADE_COST[lvl+1];
+  if(game.credits<cost){ toast('NEED '+cost+' CR'); return; }
+  game.credits-=cost; game.upgrades[key]=lvl+1;
+  ship.shield=effShieldMax(); ship.hull=effHullMax();   // benefit immediately
+  toast(UPGRADES.find(u=>u.key===key).name+' LVL '+(lvl+1)+'  -'+cost+' CR');
+  blip(760,0.1,'triangle'); vibrate(20);
+  saveGame(); renderShipyard();
+}
+function openShipyard(){ $('market').classList.add('hidden'); $('shipyard').classList.remove('hidden'); renderShipyard(); }
+function closeShipyard(){ $('shipyard').classList.add('hidden'); $('market').classList.remove('hidden'); renderMarket(); }
+$('shipyardBtn').addEventListener('pointerdown',e=>{e.preventDefault();openShipyard();},{passive:false});
+$('closeYardBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeShipyard();},{passive:false});
 
 /* ----------------------------- TOAST ------------------------------------- */
 let toastTimer=0;
@@ -3720,11 +3915,12 @@ function renderSurface(){
   for(const m of (surface.caveMeshes||[])) drawTerrainMesh(m,m4Compose([0,0,0],qIdent(),1),VP);
   // boulders
   for(const r of (surface.rocks||[])){
+    if(!visible([r.x,r.y,r.z])) continue;
     drawSolid(MESHes.asteroid,m4Compose([r.x,r.y+r.r*0.35,r.z],r.q,r.r/70),VP,[0.42,0.40,0.44]);
   }
   // points of interest
   for(const poi of surface.pois){
-    if(poi.collected) continue;
+    if(poi.collected || !visible([poi.x,poi.y,poi.z])) continue;
     const col=poiColorArr(poi.type);
     drawSolid(MESHes.body,m4Compose([poi.x,poi.y+1.6,poi.z],qIdent(),poi.type==='ore'?1.1:1.0),VP,col);
     drawSolid(MESHes.head,m4Compose([poi.x,poi.y+3.6,poi.z],qIdent(),0.55),VP,[1,1,1]);
@@ -3762,7 +3958,12 @@ function drawMinimap(){
 }
 function updateFlightButtons(){
   const land=$('landBtn'), hail=$('hailBtn'), mine=$('mineBtn'), hint=$('hintBar'), loc=$('locateBtn');
-  if(game.state!==STATE.FLIGHT){ if(land) land.classList.remove('show'); if(hint) hint.classList.remove('show'); return; }
+  const mis=$('missileBtn'), fl=$('flareBtn'), bd=$('boardBtn');
+  if(game.state!==STATE.FLIGHT){
+    if(land) land.classList.remove('show'); if(hint) hint.classList.remove('show');
+    if(mis) mis.style.display='none'; if(fl) fl.style.display='none'; if(bd) bd.style.display='none';
+    return;
+  }
   const planet=nearestPlanet(LAND_ALT);
   const trader=nearestContactRange('TRADER',HAIL_RANGE);
   const rock=bestAsteroidAhead();
@@ -3772,6 +3973,12 @@ function updateFlightButtons(){
   if(hail) hail.style.display = trader?'':'none';
   if(mine) mine.style.display = rock?'':'none';
   if(loc) loc.style.display = currentTarget()?'':'none';   // only useful with a target
+  const t=currentTarget();
+  if(mis) mis.style.display = (t && t.hostile)?'':'none';  // missiles need a hostile
+  if(fl) fl.style.display='';                              // flares always ready
+  let canBoard=false;
+  if(t && t.kind==='DERELICT'){ const surf=tgtDistTo(t)-(t.ref?t.ref.r:0); canBoard=surf<=100; }
+  if(bd) bd.style.display = canBoard?'':'none';
   let h='';
   if(canLand) h='LAND AVAILABLE \u2014 PRESS LAND';
   else if(planet && !slow) h='SLOW DOWN TO LAND';
@@ -3782,7 +3989,7 @@ function updateFlightButtons(){
 // Single source of truth for which HUD/controls are visible per state.
 function updateUI(){
   const st=game.state;
-  const surf=st===STATE.SURFACE;
+  const surf=(st===STATE.SURFACE || st===STATE.EVA);
   const hud=$('hud'); if(hud) hud.classList.toggle('surface-mode', surf);
   const deck=$('buttons'); if(deck) deck.style.display=(st===STATE.FLIGHT)?'':'none';
   // keep the context action slot just above the button deck
@@ -3796,7 +4003,107 @@ function updateUI(){
     const land=$('landBtn'); if(land) land.classList.remove('show');
     if(targetLocked){ targetLocked=false; updateLockBtn(); }
   }
-  if(surf) updateSfcUI();
+  if(st===STATE.SURFACE) updateSfcUI();
+  else if(st===STATE.EVA) updateEvaHud();
+}
+
+/* ============================ DERELICT EVA =============================== */
+const EVA={CS:5, W:15, H:15, grid:null, seed:0, player:[0,0,0], yaw:0, camYaw:0, loot:[], exit:{x:0,z:0}, collected:0, total:0};
+function evaIdx(i,j){ return j*EVA.W+i; }
+function evaIsWall(i,j){ if(i<0||j<0||i>=EVA.W||j>=EVA.H) return true; return EVA.grid[evaIdx(i,j)]===1; }
+function evaCellOf(x,z){ return [Math.floor(x/EVA.CS+EVA.W/2), Math.floor(z/EVA.CS+EVA.H/2)]; }
+function evaWorld(i,j){ return [(i-EVA.W/2+0.5)*EVA.CS, 0, (j-EVA.H/2+0.5)*EVA.CS]; }
+function buildEVA(seed){
+  const rnd=mulberry32(seed>>>0), W=EVA.W, H=EVA.H;
+  const g=new Uint8Array(W*H).fill(1);
+  g[evaIdx(1,1)]=0;
+  const stack=[[1,1]], dirs=[[2,0],[-2,0],[0,2],[0,-2]];
+  while(stack.length){
+    const [x,y]=stack[stack.length-1], opts=[];
+    for(const [dx,dy] of dirs){ const nx=x+dx,ny=y+dy; if(nx>0&&ny>0&&nx<W-1&&ny<H-1&&g[evaIdx(nx,ny)]===1) opts.push([nx,ny,(x+nx)>>1,(y+ny)>>1]); }
+    if(!opts.length){ stack.pop(); continue; }
+    const [nx,ny,mx,my]=opts[(rnd()*opts.length)|0];
+    g[evaIdx(mx,my)]=0; g[evaIdx(nx,ny)]=0; stack.push([nx,ny]);
+  }
+  for(let k=0;k<20;k++) g[evaIdx(1+((rnd()*(W-2))|0),1+((rnd()*(H-2))|0))]=0; // extra openings
+  EVA.grid=g;
+  const cells=[];
+  for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++) if(g[evaIdx(i,j)]===0 && (i>4||j>4)) cells.push([i,j]);
+  EVA.loot=[]; const n=4+((rnd()*3)|0);
+  for(let k=0;k<n && cells.length;k++){ const c=cells.splice((rnd()*cells.length)|0,1)[0]; const w=evaWorld(c[0],c[1]); EVA.loot.push({x:w[0],z:w[2],got:false}); }
+  EVA.total=EVA.loot.length; EVA.collected=0;
+  const ex=evaWorld(EVA.W-2,EVA.H-2); EVA.exit={x:ex[0],z:ex[2]};
+  const p=evaWorld(1,1); EVA.player=[p[0],0,p[2]]; EVA.yaw=0; EVA.camYaw=0;
+}
+function enterEVA(){
+  if(!system.derelict) return;
+  buildEVA(hashSeed(current.gx,555,current.gz));
+  game.state=STATE.EVA;
+  $('hud').classList.add('surface-mode','eva-mode');
+  input.sprint=false; input.jump=false; lookId=null; targetLocked=false; updateLockBtn();
+  cam.smooth=[EVA.player[0],12,EVA.player[2]+10];
+  toast('EVA \u2014 SCAVENGE AND REACH THE EXIT');
+  blip(180,0.4,'sine');
+}
+function exitEVA(){
+  game.state=STATE.FLIGHT;
+  $('hud').classList.remove('surface-mode','eva-mode');
+  input.sprint=false; input.jump=false; lookId=null;
+  cam.smooth=V.add(ship.pos,qRotate([0,7,24],ship.quat));
+  toast('EVA COMPLETE \u2014 '+EVA.collected+'/'+EVA.total+' SALVAGE');
+  saveGame();
+}
+function updateEvaHud(){
+  setText('sfcName','DERELICT'); setText('sfcBiome','EVA');
+  setText('sfcSamples',EVA.collected+'/'+EVA.total);
+  setText('sfcCr',game.credits.toLocaleString());
+  setText('sfcHold',cargoLoad()+'/'+cargoCap());
+  const act=$('sfcActionBtn'), exit=$('sfcExitBtn'), move=$('sfcMoveRow');
+  if(move) move.style.display='flex';
+  if(exit) exit.style.display='none';
+  if(act){ act.style.display=''; act.textContent='LEAVE'; act.classList.add('on'); }
+  const hint=$('hintBar'); if(hint){ hint.textContent='FIND THE GREEN EXIT \u2014 '+EVA.collected+'/'+EVA.total; hint.classList.add('show'); }
+}
+function updateEVA(dt){
+  const mx=input.stick[0], mz=input.stick[1];
+  const cf=[Math.sin(EVA.camYaw),0,Math.cos(EVA.camYaw)], cr=[Math.cos(EVA.camYaw),0,-Math.sin(EVA.camYaw)];
+  const dir=[cf[0]*(-mz)-cr[0]*mx,0,cf[2]*(-mz)-cr[2]*mx];
+  const l=V.len(dir);
+  if(l>0.06){
+    const nd=V.scale(dir,1/l), spd=26*(input.sprint?1.7:1);
+    const nx=EVA.player[0]+nd[0]*spd*dt;
+    if(!evaIsWall(...evaCellOf(nx,EVA.player[2]))) EVA.player[0]=nx;
+    const nz=EVA.player[2]+nd[2]*spd*dt;
+    if(!evaIsWall(...evaCellOf(EVA.player[0],nz))) EVA.player[2]=nz;
+    EVA.yaw=Math.atan2(nd[0],nd[2]);
+    if(lookId===null) EVA.camYaw=lerpAngle(EVA.camYaw,EVA.yaw,1-Math.exp(-4*dt));
+  }
+  for(const L of EVA.loot){ if(!L.got && Math.hypot(L.x-EVA.player[0],L.z-EVA.player[2])<4){ L.got=true; EVA.collected++; game.credits+=150; blip(740,0.1,'triangle'); toast('SALVAGE +150 CR'); } }
+  if(Math.hypot(EVA.exit.x-EVA.player[0],EVA.exit.z-EVA.player[2])<4) exitEVA();
+  updateEvaHud();
+}
+function updateEVACamera(dt){
+  const tx=EVA.player[0], tz=EVA.player[2], cd=14, ch=12, yaw=EVA.camYaw;
+  const desired=[tx-Math.sin(yaw)*cd, ch, tz-Math.cos(yaw)*cd];
+  cam.smooth=V.lerp(cam.smooth,desired,1-Math.exp(-8*dt));
+  cam.pos=cam.smooth;
+  cam.view=m4LookAt(cam.pos,[tx,2,tz],[0,1,0]);
+}
+function renderEVA(){
+  gl.clearColor(0.03,0.04,0.06,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.useProgram(prog);
+  const proj=m4Perspective(cam.fov||Math.PI/3,vw/vh,0.5,200000), VP=m4Mul(proj,cam.view); cam.VP=VP;
+  drawSolid(MESHes.evaFloor,m4Compose([0,-0.6,0],qIdent(),1),VP,[0.10,0.11,0.14]);
+  for(let j=0;j<EVA.H;j++)for(let i=0;i<EVA.W;i++){
+    if(EVA.grid[evaIdx(i,j)]!==1) continue;
+    const w=evaWorld(i,j);
+    if(!visible([w[0],3,w[2]])) continue;
+    drawSolid(MESHes.evaWall,m4Compose([w[0],2,w[2]],qIdent(),1),VP,[0.30,0.33,0.40]);
+  }
+  for(const L of EVA.loot){ if(L.got) continue; drawSolid(MESHes.body,m4Compose([L.x,1.2,L.z],qIdent(),0.8),VP,[0.95,0.8,0.2]); }
+  drawSolid(MESHes.body,m4Compose([EVA.exit.x,0.4,EVA.exit.z],qIdent(),1.4),VP,[0.3,1.0,0.5]);
+  drawSolid(MESHes.body,m4Compose([EVA.player[0],1.7,EVA.player[2]],qAxisAngle([0,1,0],EVA.yaw),1),VP,[0.9,0.8,0.25]);
 }
 
 /* ----------------------------- LOOP -------------------------------------- */
@@ -3813,6 +4120,7 @@ function frame(now){
     updateEnemies(dt);
     updateTraders(dt);
     updateProjectiles(dt);
+    updateMissiles(dt);
     updateShip(dt);
     updateTargeting(dt);
     updateMining(dt);
@@ -3823,6 +4131,8 @@ function frame(now){
     updateWarp(dt);
   } else if(game.state===STATE.SURFACE){
     updateSurface(dt);
+  } else if(game.state===STATE.EVA){
+    updateEVA(dt);
   }
   if(game.state===STATE.FLIGHT||game.state===STATE.DOCKING||game.state===STATE.DEAD){
     buildContacts();
@@ -3837,6 +4147,9 @@ function frame(now){
     updateSurfaceCamera(dt);
     renderSurface();
     drawMinimap();
+  } else if(game.state===STATE.EVA){
+    updateEVACamera(dt);
+    renderEVA();
   }
   updateUI();
 }

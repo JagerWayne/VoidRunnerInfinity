@@ -28,7 +28,7 @@
 - **Keep DOM `id`s unique.** `getElementById` returns the first match; a duplicate `id` silently bound the wrong handler (this broke the ENGAGE JUMP button — the surface JUMP and galaxy button shared `id="jumpBtn"`).
 - Context actions (`HAIL`/`MINE`/`LAND`) live in the right-side `#actionBar` and are hidden with **`display:none`** when unusable, then repositioned above the deck each frame by `updateUI()`.
 - HUD and overlays are DOM/CSS; the 3D scene is one canvas, and the radar + surface minimap use their own 2D canvases. Opening an overlay usually sets a non-`FLIGHT` state and hides `#hud`.
-- Opening the galaxy map is `STATE.MAP`, trade is `STATE.TRADE`, the target picker is `STATE.TARGETS`, the cargo hold is `STATE.CARGO`; none of these run the flight update loop. `STATE.SURFACE` runs `updateSurface`/`renderSurface` instead.
+- Opening the galaxy map is `STATE.MAP`, trade is `STATE.TRADE`, the target picker is `STATE.TARGETS`, the cargo hold is `STATE.CARGO`; none of these run the flight update loop. `STATE.SURFACE` runs `updateSurface`/`renderSurface`, `STATE.EVA` runs `updateEVA`/`renderEVA`.
 
 ## Generation & persistence
 - All procedural content is deterministic: `mulberry32(hashSeed(x,y,z))` seeded by `GALAXY_SEED = 0x5EEDC0DE`. Changing generation logic or the hash invalidates every saved world and the "identical across devices" guarantee.
