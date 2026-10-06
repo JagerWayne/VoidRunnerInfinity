@@ -3,7 +3,13 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.14 · CARGO (current)
+## 1.15 · POLISH (current)
+- Build label shows a **version** (`BUILD 1.x`) instead of a date.
+- **Toasts + hints** moved to the top-left, out of the play area.
+- Removed the misplaced **SYS/ENG/WEP** pip buttons and the **SPD/ALT** readout.
+- **More dynamic camera**: speed-based pull-back, trailing spring, dolly-zoom FOV, hit/boost shake.
+
+## 1.14 · CARGO
 - Cargo hold is **clickable** and opens a contents screen.
 - **Jettison** cargo in space (drop one or dump the whole stack).
 
