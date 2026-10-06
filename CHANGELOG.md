@@ -3,7 +3,10 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.19 · SHIPYARD & EVA (current)
+## 1.20 · SURFACE FIX (current)
+- Fixed surface **pickups** (and boulders) not showing — render culling used a stale camera matrix.
+
+## 1.19 · SHIPYARD & EVA
 - Perf: **matrix scratch-pooling** (no per-frame matrix allocations).
 - Perf: **render culling** (skip off-screen asteroids/rocks/POIs/enemies).
 - **SHIPYARD**: upgrade weapons, shields, engines and hull.

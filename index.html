@@ -3200,9 +3200,12 @@ $('closeGalaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeG
 $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
 
 /* ----------------------------- CHANGELOG --------------------------------- */
-const VERSION='1.19';
+const VERSION='1.20';
 const CHANGELOG=[
-  {v:'1.19 \u00b7 SHIPYARD & EVA (current)', items:[
+  {v:'1.20 \u00b7 SURFACE FIX (current)', items:[
+    'Fixed surface pickups (and boulders) not showing — render culling used a stale camera matrix',
+  ]},
+  {v:'1.19 \u00b7 SHIPYARD & EVA', items:[
     'Perf: matrix scratch-pooling (no per-frame matrix allocations)',
     'Perf: render culling (skip off-screen asteroids/rocks/POIs/enemies)',
     'SHIPYARD: upgrade weapons, shields, engines and hull',
@@ -3909,7 +3912,7 @@ function renderSurface(){
   gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   const proj=m4Perspective(Math.PI/3,vw/vh,0.5,200000);
-  const VP=m4Mul(proj,cam.view);
+  const VP=m4Mul(proj,cam.view); cam.VP=VP;
   drawTerrainMesh(surface.mesh,m4Compose([0,0,0],qIdent(),1),VP);
   // cave roofs
   for(const m of (surface.caveMeshes||[])) drawTerrainMesh(m,m4Compose([0,0,0],qIdent(),1),VP);
