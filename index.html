@@ -1364,17 +1364,19 @@ function updateTraders(dt){
     if(t.hitT<=0) t.shield=Math.min(t.shieldMax,t.shield+t.shieldMax*0.05*dt);
     if(t.hull<t.hullMax*0.4) t.flee=true;
     const toShip=V.sub(ship.pos,t.pos), dist=V.len(toShip);
-    let face;
+    let baseDir, spd;
     if(t.flee || dist<220){
-      const away=dist>1e-3?V.norm(toShip):[1,0,0];
-      t.vel=V.lerp(t.vel,V.scale(away,t.flee?110:55),1-Math.exp(-2*dt));
-      face=away;
+      baseDir=dist>1e-3?V.norm(toShip):[1,0,0];
+      spd=t.flee?110:55;
     }else{
       t.wander+=(Math.random()-0.5)*0.6*dt;
-      const dir=[Math.cos(t.wander),0,Math.sin(t.wander)];
-      t.vel=V.lerp(t.vel,V.scale(dir,28),1-Math.exp(-0.8*dt));
-      face=V.len(t.vel)>1?V.norm(t.vel):V.norm(V.sub(ship.pos,t.pos));
+      baseDir=[Math.cos(t.wander),0,Math.sin(t.wander)];
+      spd=28;
     }
+    // steer around solid bodies so traders don't fly into planets/rocks
+    baseDir=V.norm(V.add(baseDir,V.scale(avoidance(t.pos),2.2)));
+    t.vel=V.lerp(t.vel,V.scale(baseDir,spd),1-Math.exp(-2*dt));
+    const face=V.len(t.vel)>1?V.norm(t.vel):baseDir;
     t.pos=V.add(t.pos,V.scale(t.vel,dt));
     if(Math.random()<dt*16){
       const rear=V.add(t.pos,qRotate([0,0,6],t.quat));
@@ -1884,6 +1886,26 @@ function scheduleEnemyRespawn(){
     blip(200,0.4,'square');
   },enemyRespawnDelay());
 }
+// Steering push away from solid bodies (star, planets, station, asteroids).
+function avoidance(pos){
+  let ax=0,ay=0,az=0;
+  const bodies=[system.sun];
+  for(const p of system.planets) bodies.push(p);
+  if(system.station) bodies.push(system.station);
+  for(const a of system.asteroids) bodies.push(a);
+  for(const b of bodies){
+    const r = b.r || 20;
+    const clear = r + (b===system.sun ? 500 : 160);
+    const dx=pos[0]-b.pos[0], dy=pos[1]-b.pos[1], dz=pos[2]-b.pos[2];
+    const dist=Math.hypot(dx,dy,dz);
+    if(dist<clear && dist>1e-3){
+      const push=(clear-dist)/clear;      // 0..1 as it gets closer
+      const w=push*push*3;
+      ax+=dx/dist*w; ay+=dy/dist*w; az+=dz/dist*w;
+    }
+  }
+  return [ax,ay,az];
+}
 function predictedLead(from,targetPos,shooterVel,targetVel){
   const s=COMBAT.boltSpeed;
   const r=V.sub(targetPos,from);
@@ -1962,7 +1984,7 @@ function updateEnemies(dt){
       if(dd<190 && dd>1e-3) desired=V.add(desired,V.scale(d,(190-dd)/190*1.5/dd));
     }
     if(dist<95 && dist>1e-3) desired=V.add(desired,V.scale(dir,-1.6)); // never ram the player
-    desired=V.norm(desired);
+    desired=V.norm(V.add(desired,V.scale(avoidance(e.pos),1.8)));     // dodge planets/asteroids/star
 
     // ---- steer along an arc; slow down in hard turns so the nose can catch up ----
     const alignNow=Math.max(0,V.dot(heading,desired));
@@ -2000,11 +2022,22 @@ function updateEnemies(dt){
 }
 
 /* ----------------------------- MINING ------------------------------------ */
-const MINING_RANGE=900;
+const MINING_RANGE=100;   // must be within 0.1 km (100 m) to mine
 let miningBeam=null;
 function nearestContact(kind,maxDist){
   let best=null,bd=maxDist||1e18;
   for(const c of contacts){ if(c.kind!==kind) continue; const d=tgtDistTo(c); if(d<bd){bd=d;best=c;} }
+  return best;
+}
+// Nearest contact of a kind measured from the object's SURFACE (so "0.1 km" is reachable).
+function nearestContactRange(kind,range){
+  let best=null,bd=1e18;
+  for(const c of contacts){
+    if(c.kind!==kind) continue;
+    const rr=(c.ref && (c.ref.r||c.ref.radius))||0;
+    const surf=tgtDistTo(c)-rr;
+    if(surf<=range && surf<bd){ bd=surf; best=c; }
+  }
   return best;
 }
 // Best asteroid to mine: in range and most closely aligned with the nose.
@@ -2014,7 +2047,7 @@ function bestAsteroidAhead(){
   for(const c of contacts){
     if(c.kind!=='ASTEROID'||!c.ref) continue;
     const rel=V.sub(c.pos,ship.pos), d=V.len(rel);
-    if(d>MINING_RANGE||d<1e-3) continue;
+    if(d<1e-3 || (d-c.ref.r)>MINING_RANGE) continue;   // within 100 m of the rock surface
     const al=V.dot(fwd,V.scale(rel,1/d));
     if(al>bs){ bs=al; best=c; }
   }
@@ -2034,7 +2067,7 @@ function updateMining(dt){
   const a=t.ref;
   const rel=V.sub(a.pos,ship.pos), dist=V.len(rel), dir=V.norm(rel);
   const align=V.dot(shipForward(),dir);
-  if(dist>MINING_RANGE || align<0.3 || a.amount<=0) return;
+  if((dist-a.r)>MINING_RANGE || align<0.3 || a.amount<=0) return;   // within 0.1 km of the surface
   ship.miningFrom=V.add(ship.pos,V.scale(shipForward(),6));
   miningBeam=a.pos;
   if(Math.random()<dt*30){
@@ -2692,11 +2725,11 @@ function trade(id,dir){
   }
   renderMarket(); saveGame();
 }
-const HAIL_RANGE=2000;
+const HAIL_RANGE=100;     // must be within 0.1 km (100 m) to trade
 function hailTarget(){
   if(game.state!==STATE.FLIGHT) return;
   let t=currentTarget();
-  if(!t || t.kind!=='TRADER'){ t=nearestContact('TRADER',HAIL_RANGE); if(t) game.targetId=t.id; }
+  if(!t || t.kind!=='TRADER'){ t=nearestContactRange('TRADER',HAIL_RANGE); if(t) game.targetId=t.id; }
   if(!t || t.kind!=='TRADER' || !t.ref){ toast('NO TRADER IN RANGE'); return; }
   openTrader(t.ref);
 }
@@ -2977,9 +3010,13 @@ $('closeGalaxyBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeG
 $('engageJumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();engageJump();},{passive:false});
 
 /* ----------------------------- CHANGELOG --------------------------------- */
-const VERSION='1.15';
+const VERSION='1.16';
 const CHANGELOG=[
-  {v:'1.15 \u00b7 POLISH (current)', items:[
+  {v:'1.16 \u00b7 AI (current)', items:[
+    'Enemies and traders steer around planets, the star, stations and asteroids',
+    'Mining and trading now require being within 0.1 km of the object surface',
+  ]},
+  {v:'1.15 \u00b7 POLISH', items:[
     'Build label now shows a version (BUILD 1.x) instead of a date',
     'Moved toasts + hints to the top-left, out of the play area',
     'Removed the misplaced SYS/ENG/WEP pip buttons and the SPD/ALT readout',
@@ -3642,7 +3679,7 @@ function updateFlightButtons(){
   const land=$('landBtn'), hail=$('hailBtn'), mine=$('mineBtn'), hint=$('hintBar'), loc=$('locateBtn');
   if(game.state!==STATE.FLIGHT){ if(land) land.classList.remove('show'); if(hint) hint.classList.remove('show'); return; }
   const planet=nearestPlanet(LAND_ALT);
-  const trader=nearestContact('TRADER',HAIL_RANGE);
+  const trader=nearestContactRange('TRADER',HAIL_RANGE);
   const rock=bestAsteroidAhead();
   const slow=V.len(ship.vel)<200;
   const canLand=planet && slow;

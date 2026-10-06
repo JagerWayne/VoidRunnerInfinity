@@ -3,7 +3,11 @@
 A single-file HTML5/WebGL space sim. All updates, newest first.
 The same list is available in-game from the start screen (**CHANGELOG** button).
 
-## 1.15 · POLISH (current)
+## 1.16 · AI (current)
+- Enemies and traders **steer around** planets, the star, stations and asteroids.
+- **Mining and trading** now require being within **0.1 km** of the object surface.
+
+## 1.15 · POLISH
 - Build label shows a **version** (`BUILD 1.x`) instead of a date.
 - **Toasts + hints** moved to the top-left, out of the play area.
 - Removed the misplaced **SYS/ENG/WEP** pip buttons and the **SPD/ALT** readout.
