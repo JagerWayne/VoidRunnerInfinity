@@ -67,19 +67,18 @@
     border-radius:50%; border:2px solid rgba(140,240,255,0.7); background:rgba(20,80,110,0.35);
     box-shadow:0 0 14px rgba(80,220,255,0.5); }
 
-  /* Buttons */
-  #buttons { position:absolute; right:10px; bottom:16px; display:flex; flex-direction:column;
-    align-items:flex-end; gap:8px; pointer-events:none; }
-  .btn { pointer-events:auto; width:66px; height:66px; border-radius:50%;
-    border:1.5px solid rgba(90,220,255,0.55); background:rgba(10,30,46,0.55); color:#9fe9ff;
+  /* Buttons: 3-column control deck */
+  #buttons { position:absolute; right:10px; bottom:14px; width:220px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:7px; pointer-events:none; }
+  .btn { pointer-events:auto; height:52px; border-radius:10px;
+    border:1.5px solid rgba(90,220,255,0.55); background:rgba(8,22,34,0.72); color:#bfefff;
     font-family:inherit; font-size:10px; font-weight:bold; letter-spacing:1px;
     display:flex; align-items:center; justify-content:center; text-align:center;
-    box-shadow:0 0 12px rgba(0,120,200,0.25), 0 0 8px rgba(0,150,220,0.15) inset; }
-  .btn:active, .btn.on { background:rgba(40,140,190,0.7); color:#fff; box-shadow:0 0 18px #4fdfff; }
-  #fireBtn { width:82px; height:82px; font-size:12px; border-color:rgba(255,120,140,0.7); color:#ffd0d8; }
-  #fireBtn:active { background:rgba(200,60,80,0.8); box-shadow:0 0 20px #ff5a6e; }
-  .row { display:flex; gap:8px; }
-  .btn.mini { width:52px; height:52px; font-size:9px; }
+    box-shadow:0 0 10px rgba(0,120,200,0.2); }
+  .btn:active, .btn.on { background:#2b9fd0; color:#02141d; box-shadow:0 0 16px #4fdfff; }
+  .btn.fire { grid-column:span 2; height:66px; font-size:15px; letter-spacing:2px;
+    border-color:rgba(255,120,140,0.8); color:#ffd7dd; background:rgba(50,10,18,0.72); }
+  .btn.fire:active { background:#c8394f; color:#fff; box-shadow:0 0 20px #ff5a6e; }
 
   /* Start gate */
   #gate { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column;
@@ -127,6 +126,23 @@
   #contracts .footer button.primary { background:#2b9fd0; color:#02141d; }
   #contracts .mktTable { flex:none; max-height:34%; }
   .mktHead { color:#3f8fb0; font-size:9px; letter-spacing:1px; }
+
+  /* Target list */
+  #targets { position:fixed; inset:0; z-index:33; background:rgba(3,10,18,0.97);
+    padding:16px; display:flex; flex-direction:column; gap:8px; }
+  #targets h2 { font-size:15px; letter-spacing:3px; color:#9ff0ff; text-align:center; }
+  #targets .footer { display:flex; gap:10px; }
+  #targets .footer button { pointer-events:auto; flex:1; padding:12px; font-family:inherit; font-size:13px;
+    letter-spacing:2px; border-radius:6px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; font-weight:bold; }
+  #targets .footer button.primary { background:#2b9fd0; color:#02141d; }
+  #targetTypes { display:flex; flex-wrap:wrap; gap:6px; }
+  .tbtn { pointer-events:auto; padding:8px 10px; font-family:inherit; font-size:11px; font-weight:bold;
+    letter-spacing:1px; border-radius:8px; border:1px solid rgba(90,220,255,0.5);
+    background:rgba(12,40,60,0.8); color:#bfefff; }
+  .tbtn.on { background:#2b9fd0; color:#02141d; }
+  #targetList { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    border:1px solid rgba(80,220,255,0.25); border-radius:8px; }
 
   /* Galaxy map */
   #galaxy { position:fixed; inset:0; z-index:32; background:rgba(3,10,18,0.97);
@@ -191,6 +207,24 @@
     background:radial-gradient(ellipse at center, rgba(255,40,70,0) 38%, rgba(255,30,60,0.6) 100%);
     transition:opacity .18s; }
 
+  /* Surface / on-foot mode */
+  #hud.surface-mode #topbar, #hud.surface-mode #targetPanel, #hud.surface-mode #creditsPanel,
+  #hud.surface-mode #shipPanel, #hud.surface-mode #radarWrap, #hud.surface-mode #throttle,
+  #hud.surface-mode #reticle, #hud.surface-mode #targetBox, #hud.surface-mode #leadPip,
+  #hud.surface-mode #waypoint, #hud.surface-mode #contractPanel, #hud.surface-mode #buttons { display:none !important; }
+  #sfcPanel { display:none; position:absolute; top:8px; left:8px; right:8px; text-align:center; }
+  #hud.surface-mode #sfcPanel { display:block; }
+  #sfcButtons { position:absolute; right:10px; bottom:14px; display:none; flex-direction:column;
+    gap:8px; align-items:flex-end; }
+  #hud.surface-mode #sfcButtons { display:flex; }
+  #sfcButtons .btn { width:132px; height:56px; }
+  #landBtn { position:absolute; left:50%; bottom:210px; transform:translateX(-50%); display:none;
+    pointer-events:auto; padding:12px 22px; font-family:inherit; font-size:14px; font-weight:bold;
+    letter-spacing:2px; border-radius:10px; border:1.5px solid rgba(120,255,180,0.8);
+    background:rgba(10,46,30,0.8); color:#c8ffe0; box-shadow:0 0 18px rgba(80,255,150,0.5); }
+  #landBtn.show { display:block; }
+  #landBtn:active { background:#2fb56a; color:#02141d; }
+
   #toast { position:fixed; left:50%; top:22%; transform:translateX(-50%); z-index:35;
     padding:8px 16px; border:1px solid rgba(90,220,255,0.5); border-radius:6px;
     background:rgba(8,24,38,0.85); color:#bff4ff; font-size:12px; letter-spacing:1px;
@@ -246,6 +280,11 @@
 
   <div id="throttle"><div id="thrFill"></div></div>
 
+  <div id="sfcPanel" class="panel">
+    <span class="lbl">SURFACE</span> <span class="val" id="sfcName">---</span>
+    <span class="lbl" id="sfcBiome"></span>
+  </div>
+
   <div id="reticle"><div id="reticleDot"></div></div>
   <div id="targetBox"><i></i><i></i><i></i><i></i></div>
   <div id="leadPip"></div>
@@ -254,33 +293,34 @@
 
   <div id="buttons">
     <button class="btn" id="galaxyBtn">GALAXY</button>
-    <div class="row">
-      <button class="btn mini" id="hailBtn">HAIL</button>
-      <button class="btn mini" id="mineBtn">MINE</button>
-    </div>
-    <div class="row">
-      <button class="btn mini" id="prevBtn">&#9664;</button>
-      <button class="btn mini" id="nextBtn">&#9654;</button>
-    </div>
-    <div class="row">
-      <button class="btn mini" id="rollLBtn">&#8634;</button>
-      <button class="btn mini" id="rollRBtn">&#8635;</button>
-    </div>
-    <div class="row">
-      <button class="btn mini" id="thrDownBtn">THR&minus;</button>
-      <button class="btn mini" id="thrUpBtn">THR+</button>
-    </div>
+    <button class="btn" id="targetBtn">TARGET</button>
+    <button class="btn" id="hailBtn">HAIL</button>
+
+    <button class="btn" id="rollLBtn">ROLL &#8634;</button>
+    <button class="btn" id="rollRBtn">ROLL &#8635;</button>
+    <button class="btn" id="mineBtn">MINE</button>
+
+    <button class="btn" id="thrDownBtn">THR &minus;</button>
+    <button class="btn" id="thrUpBtn">THR +</button>
     <button class="btn" id="faBtn">FA ON</button>
+
     <button class="btn" id="boostBtn">BOOST</button>
-    <button class="btn" id="fireBtn">FIRE</button>
+    <button class="btn fire" id="fireBtn">FIRE</button>
   </div>
+
+  <div id="sfcButtons">
+    <button class="btn" id="jumpBtn">JUMP</button>
+    <button class="btn" id="sfcActionBtn">ENTER SHIP</button>
+  </div>
+
+  <button id="landBtn">LAND</button>
 </div>
 
 <div id="gate">
   <h1>VOID RUNNER</h1>
   <div class="sub">I N F I N I T Y</div>
   <button id="startBtn">TAP TO ENGAGE</button>
-  <div class="hint">LEFT THUMB: drag to pitch / yaw<br>RIGHT THUMB: fire, boost, roll, mine, throttle, target cycle<br>TAP THE RADAR to select. TARGET a rock + hold MINE to extract ore. TARGET a hauler + HAIL to trade. Hold a hostile in the reticle to LOCK. Dock below 45 m/s.</div>
+  <div class="hint">FLIGHT: left thumb pitch/yaw, right thumb fire/boost/mine/target.<br>TARGET a planet and press LAND to touch down, then WALK the surface. Reach the ship and ENTER to LAUNCH.<br>Mine rocks, trade with haulers, dock below 45 m/s.</div>
 </div>
 
 <div id="market" class="hidden">
@@ -309,6 +349,15 @@
   <div class="mktTable" id="activeContractList"></div>
   <div class="footer">
     <button id="closeContractsBtn" class="primary">BACK</button>
+  </div>
+</div>
+
+<div id="targets" class="hidden">
+  <h2>TARGETS</h2>
+  <div id="targetTypes"></div>
+  <div id="targetList"></div>
+  <div class="footer">
+    <button id="closeTargetsBtn" class="primary">CLOSE</button>
   </div>
 </div>
 
@@ -495,8 +544,10 @@ function makeMesh(arr,mode){
   return {buf,count:arr.length/3,mode};
 }
 function drawMesh(mesh,mvp,color,alpha,psize){
+  gl.useProgram(prog);
   gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buf);
   gl.vertexAttribPointer(A_POS,3,gl.FLOAT,false,0,0);
+  gl.enableVertexAttribArray(A_POS);
   gl.uniformMatrix4fv(U_MVP,false,mvp);
   gl.uniform3fv(U_COLOR,color);
   gl.uniform1f(U_ALPHA,alpha===undefined?1:alpha);
@@ -504,55 +555,182 @@ function drawMesh(mesh,mvp,color,alpha,psize){
   gl.drawArrays(mesh.mode,0,mesh.count);
 }
 
-/* Mesh generators */
-function shipVerts(){
-  const P={nose:[0,0,-8],tl:[-3,2,4],tr:[3,2,4],bl:[-3,-2,4],br:[3,-2,4],
-    wl:[-8,0,2],wr:[8,0,2],cl:[-2,0,5],cr:[2,0,5]};
-  const E=[['nose','tl'],['nose','tr'],['nose','bl'],['nose','br'],
-    ['tl','bl'],['tr','br'],['tl','tr'],['bl','br'],
-    ['tl','wl'],['bl','wl'],['wl','cl'],['cl','bl'],
-    ['tr','wr'],['br','wr'],['wr','cr'],['cr','br'],
-    ['cl','cr']];
+/* ----------------------------- SOLID SHADER ------------------------------ */
+const SVS=`
+attribute vec3 aPos;
+attribute vec3 aNormal;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+uniform vec3 uColor;
+uniform vec3 uLight;
+varying vec3 vColor;
+varying float vShade;
+void main(){
+  vec3 nx=uModel[0].xyz, ny=uModel[1].xyz, nz=uModel[2].xyz;
+  vec3 n=normalize(nx*aNormal.x+ny*aNormal.y+nz*aNormal.z);
+  vShade=0.35+0.65*max(dot(n,normalize(uLight)),0.0);
+  vColor=uColor;
+  gl_Position=uMVP*vec4(aPos,1.0);
+}`;
+const SFS=`
+precision mediump float;
+varying vec3 vColor;
+varying float vShade;
+void main(){ gl_FragColor=vec4(vColor*vShade,1.0); }`;
+const sprog=(function(){
+  const pr=gl.createProgram();
+  gl.attachShader(pr,compile(gl.VERTEX_SHADER,SVS));
+  gl.attachShader(pr,compile(gl.FRAGMENT_SHADER,SFS));
+  gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  return pr;
+})();
+const SA_POS=gl.getAttribLocation(sprog,'aPos');
+const SA_NRM=gl.getAttribLocation(sprog,'aNormal');
+const SU_MVP=gl.getUniformLocation(sprog,'uMVP');
+const SU_MODEL=gl.getUniformLocation(sprog,'uModel');
+const SU_COLOR=gl.getUniformLocation(sprog,'uColor');
+const SU_LIGHT=gl.getUniformLocation(sprog,'uLight');
+const LIGHT_DIR=V.norm([0.35,0.85,0.4]);
+function makeSolidMesh(arr){
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);
+  return {buf,count:arr.length/6};
+}
+function drawSolid(mesh,M,VP,color){
+  gl.useProgram(sprog);
+  gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buf);
+  gl.vertexAttribPointer(SA_POS,3,gl.FLOAT,false,24,0);
+  gl.vertexAttribPointer(SA_NRM,3,gl.FLOAT,false,24,12);
+  gl.enableVertexAttribArray(SA_POS);
+  gl.enableVertexAttribArray(SA_NRM);
+  gl.uniformMatrix4fv(SU_MVP,false,m4Mul(VP,M));
+  gl.uniformMatrix4fv(SU_MODEL,false,M);
+  gl.uniform3fv(SU_COLOR,color);
+  gl.uniform3fv(SU_LIGHT,LIGHT_DIR);
+  gl.drawArrays(gl.TRIANGLES,0,mesh.count);
+}
+
+/* ----------------------------- TERRAIN SHADER ---------------------------- */
+const TVS=`
+attribute vec3 aPos;
+attribute vec3 aNormal;
+attribute vec3 aColor;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+uniform vec3 uLight;
+varying vec3 vColor;
+varying float vShade;
+void main(){
+  vec3 nx=uModel[0].xyz, ny=uModel[1].xyz, nz=uModel[2].xyz;
+  vec3 n=normalize(nx*aNormal.x+ny*aNormal.y+nz*aNormal.z);
+  vShade=0.4+0.6*max(dot(n,normalize(uLight)),0.0);
+  vColor=aColor;
+  gl_Position=uMVP*vec4(aPos,1.0);
+}`;
+const TFS=`
+precision mediump float;
+varying vec3 vColor;
+varying float vShade;
+void main(){ gl_FragColor=vec4(vColor*vShade,1.0); }`;
+const tprog=(function(){
+  const pr=gl.createProgram();
+  gl.attachShader(pr,compile(gl.VERTEX_SHADER,TVS));
+  gl.attachShader(pr,compile(gl.FRAGMENT_SHADER,TFS));
+  gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  return pr;
+})();
+const TA_POS=gl.getAttribLocation(tprog,'aPos');
+const TA_NRM=gl.getAttribLocation(tprog,'aNormal');
+const TA_COL=gl.getAttribLocation(tprog,'aColor');
+const TU_MVP=gl.getUniformLocation(tprog,'uMVP');
+const TU_MODEL=gl.getUniformLocation(tprog,'uModel');
+const TU_LIGHT=gl.getUniformLocation(tprog,'uLight');
+function makeTerrainMesh(arr){
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);
+  return {buf,count:arr.length/9};
+}
+function drawTerrainMesh(mesh,M,VP){
+  gl.useProgram(tprog);
+  gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buf);
+  gl.vertexAttribPointer(TA_POS,3,gl.FLOAT,false,36,0);
+  gl.vertexAttribPointer(TA_NRM,3,gl.FLOAT,false,36,12);
+  gl.vertexAttribPointer(TA_COL,3,gl.FLOAT,false,36,24);
+  gl.enableVertexAttribArray(TA_POS);
+  gl.enableVertexAttribArray(TA_NRM);
+  gl.enableVertexAttribArray(TA_COL);
+  gl.uniformMatrix4fv(TU_MVP,false,m4Mul(VP,M));
+  gl.uniformMatrix4fv(TU_MODEL,false,M);
+  gl.uniform3fv(TU_LIGHT,LIGHT_DIR);
+  gl.drawArrays(gl.TRIANGLES,0,mesh.count);
+}
+
+/* Mesh generators (solid triangles with normals) */
+function pushTri(out,a,b,c){
+  let n=V.cross(V.sub(b,a),V.sub(c,a));
+  n=V.len(n)>1e-6?V.norm(n):[0,1,0];
+  out.push(a[0],a[1],a[2],n[0],n[1],n[2],
+           b[0],b[1],b[2],n[0],n[1],n[2],
+           c[0],c[1],c[2],n[0],n[1],n[2]);
+}
+function pushVert(out,p,n){ out.push(p[0],p[1],p[2],n[0],n[1],n[2]); }
+function sphereTris(r,lat,lon){
   const out=[];
-  for(const [a,b] of E){out.push(...P[a],...P[b]);}
+  function P(i,j){
+    const phi=Math.PI*i/lat, th=2*Math.PI*j/lon;
+    const nx=Math.sin(phi)*Math.cos(th), ny=Math.cos(phi), nz=Math.sin(phi)*Math.sin(th);
+    return [[nx*r,ny*r,nz*r],[nx,ny,nz]];
+  }
+  for(let i=0;i<lat;i++)for(let j=0;j<lon;j++){
+    const a=P(i,j),b=P(i+1,j),c=P(i+1,j+1),d=P(i,j+1);
+    pushVert(out,a[0],a[1]); pushVert(out,b[0],b[1]); pushVert(out,c[0],c[1]);
+    pushVert(out,a[0],a[1]); pushVert(out,c[0],c[1]); pushVert(out,d[0],d[1]);
+  }
   return out;
 }
-function stationVerts(){
-  const r=18,h=26;
-  const ring=[];
-  for(let i=0;i<8;i++){const a=i/8*Math.PI*2;ring.push([Math.cos(a)*r,0,Math.sin(a)*r]);}
-  const top=[0,h,0],bot=[0,-h,0];
-  const out=[];
-  for(let i=0;i<8;i++){
-    const p=ring[i],q=ring[(i+1)%8];
-    out.push(...p,...q);      // ring
-    out.push(...p,...top);
-    out.push(...p,...bot);
+function rockTris(r){
+  const out=[], lat=4, lon=7;
+  const hash=(x,y,z)=>{const h=Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453;return h-Math.floor(h);};
+  function P(i,j){
+    const phi=Math.PI*i/lat, th=2*Math.PI*j/lon;
+    const dx=Math.sin(phi)*Math.cos(th), dy=Math.cos(phi), dz=Math.sin(phi)*Math.sin(th);
+    const f=0.68+0.62*hash(dx,dy,dz);
+    return [dx*r*f,dy*r*f,dz*r*f];
   }
-  // docking bay opening (a box on +Z)
-  const bz=r, bw=6, bh=5;
-  out.push(-bw,bh,bz, bw,bh,bz,  bw,bh,bz, bw,-bh,bz,
-           bw,-bh,bz, -bw,-bh,bz, -bw,-bh,bz, -bw,bh,bz);
+  for(let i=0;i<lat;i++)for(let j=0;j<lon;j++){
+    const a=P(i,j),b=P(i+1,j),c=P(i+1,j+1),d=P(i,j+1);
+    pushTri(out,a,b,c); pushTri(out,a,c,d);
+  }
   return out;
 }
-function sphereLines(r,latN,lonN){
-  const v=[];
-  for(let i=1;i<latN;i++){
-    const phi=Math.PI*i/latN,y=Math.cos(phi)*r,rr=Math.sin(phi)*r;
-    for(let j=0;j<lonN;j++){
-      const t0=2*Math.PI*j/lonN,t1=2*Math.PI*(j+1)/lonN;
-      v.push(Math.cos(t0)*rr,y,Math.sin(t0)*rr, Math.cos(t1)*rr,y,Math.sin(t1)*rr);
-    }
-  }
-  for(let j=0;j<lonN;j++){
-    const t=2*Math.PI*j/lonN;
-    for(let i=0;i<latN;i++){
-      const p0=Math.PI*i/latN,p1=Math.PI*(i+1)/latN;
-      v.push(Math.cos(t)*Math.sin(p0)*r,Math.cos(p0)*r,Math.sin(t)*Math.sin(p0)*r,
-             Math.cos(t)*Math.sin(p1)*r,Math.cos(p1)*r,Math.sin(t)*Math.sin(p1)*r);
-    }
-  }
-  return v;
+function shipTris(){
+  const out=[];
+  const nose=[0,0,-8], top=[0,2,4], right=[3,0,4], bot=[0,-2,4], left=[-3,0,4];
+  const wR=[9,0,2], wL=[-9,0,2];
+  pushTri(out,nose,top,right); pushTri(out,nose,right,bot);
+  pushTri(out,nose,bot,left);  pushTri(out,nose,left,top);
+  pushTri(out,top,left,bot);   pushTri(out,top,bot,right);
+  pushTri(out,top,bot,wR);     pushTri(out,top,bot,wL);
+  return out;
+}
+function stationTris(){
+  const out=[], r=18, h=26, n=8;
+  const ring=[]; for(let i=0;i<n;i++){const a=i/n*Math.PI*2;ring.push([Math.cos(a)*r,0,Math.sin(a)*r]);}
+  const top=[0,h,0], bot=[0,-h,0];
+  for(let i=0;i<n;i++){ const p=ring[i],q=ring[(i+1)%n]; pushTri(out,p,q,top); pushTri(out,q,p,bot); }
+  const bz=r,bw=6,bh=5,bd=5;
+  const A=[-bw,bh,bz],B=[bw,bh,bz],C=[bw,-bh,bz],D=[-bw,-bh,bz];
+  const A2=[-bw,bh,bz+bd],B2=[bw,bh,bz+bd],C2=[bw,-bh,bz+bd],D2=[-bw,-bh,bz+bd];
+  pushTri(out,A,B,B2); pushTri(out,A,B2,A2);
+  pushTri(out,D,D2,C2); pushTri(out,D,C2,C);
+  pushTri(out,B,C,C2); pushTri(out,B,C2,B2);
+  pushTri(out,A,A2,D2); pushTri(out,A,D2,D);
+  pushTri(out,A2,B2,C2); pushTri(out,A2,C2,D2);
+  return out;
 }
 function starfield(count){
   const rnd=mulberry32(GALAXY_SEED^0xABCD);
@@ -566,14 +744,22 @@ function starfield(count){
 }
 
 const MESHes={
-  ship:makeMesh(shipVerts(),gl.LINES),
-  station:makeMesh(stationVerts(),gl.LINES),
+  ship:makeSolidMesh(shipTris()),
+  station:makeSolidMesh(stationTris()),
   stars:makeMesh(starfield(1400),gl.POINTS),
-  sun:makeMesh(sphereLines(600,7,12),gl.LINES),
-  planet:makeMesh(sphereLines(1400,16,28),gl.LINES),
-  asteroid:makeMesh(sphereLines(70,5,8),gl.LINES),
+  sun:makeSolidMesh(sphereTris(600,8,14)),
+  planet:makeSolidMesh(sphereTris(1400,12,20)),
+  asteroid:makeSolidMesh(rockTris(70)),
   bolt:makeMesh([0,0,0],gl.POINTS),
+  body:makeSolidMesh(cubeTris(1.4,3.2,1.4)),
+  head:makeSolidMesh(cubeTris(0.9,0.9,0.9)),
 };
+function cubeTris(sx,sy,sz){
+  const x=sx/2,y=sy/2,z=sz/2;
+  const P=[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]];
+  const F=[[0,1,2],[0,2,3],[5,4,7],[5,7,6],[4,0,3],[4,3,7],[1,5,6],[1,6,2],[3,2,6],[3,6,7],[4,5,1],[4,1,0]];
+  const out=[]; for(const f of F) pushTri(out,P[f[0]],P[f[1]],P[f[2]]); return out;
+}
 // dynamic 2-vertex line used for the mining beam
 const beamMesh=(function(){
   const buf=gl.createBuffer();
@@ -703,7 +889,7 @@ window.addEventListener('orientationchange',()=>setTimeout(resize,120));
 resize();
 
 /* ----------------------------- GAME STATE -------------------------------- */
-const STATE={BOOT:0,FLIGHT:1,DOCKING:2,DOCKED:3,DEAD:4,WARP:5,MAP:6,TRADE:7};
+const STATE={BOOT:0,FLIGHT:1,DOCKING:2,DOCKED:3,DEAD:4,WARP:5,MAP:6,TRADE:7,TARGETS:8,SURFACE:9};
 const game={
   state:STATE.BOOT,
   time:0,
@@ -1006,20 +1192,21 @@ function loadSystem(gx,gz){
   placeShipAtStart();
   resetEnemies();
   resetTraders();
+  cam.smooth=V.add(ship.pos,qRotate([0,7,24],ship.quat));
   setText('sysName',system.name);
   setText('sysType',system.type.toUpperCase());
   saveGame();
 }
 
 /* ----------------------------- INPUT ------------------------------------- */
-const input={stick:[0,0],stickActive:false,fire:false,boost:false,roll:0,mine:false};
+const input={stick:[0,0],stickActive:false,fire:false,boost:false,roll:0,mine:false,jump:false};
 const stickEl=document.getElementById('stick');
 const nubEl=document.getElementById('stickNub');
 let stickId=null,stickOrigin=[0,0];
 
 function stickRadius(){return Math.min(vw,vh)*0.16;}
 function onDown(e){
-  if(game.state!==STATE.FLIGHT) return;
+  if(game.state!==STATE.FLIGHT && game.state!==STATE.SURFACE) return;
   if(e.target && e.target.closest && e.target.closest('.btn')) return;
   if(stickId!==null) return;
   if(e.clientX<vw*0.55){
@@ -1079,10 +1266,13 @@ function bindTap(id,fn){
   const el=document.getElementById(id);
   el.addEventListener('pointerdown',e=>{e.preventDefault();if(game.state===STATE.FLIGHT)fn();},{passive:false});
 }
-bindTap('nextBtn',()=>cycleTarget(1));
-bindTap('prevBtn',()=>cycleTarget(-1));
+bindTap('targetBtn',()=>openTargets());
 bindHold('mineBtn',()=>input.mine=true,()=>input.mine=false);
 bindTap('hailBtn',()=>hailTarget());
+document.getElementById('jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();input.jump=true;},{passive:false});
+document.getElementById('sfcActionBtn').addEventListener('pointerdown',e=>{e.preventDefault();sfcAction();},{passive:false});
+document.getElementById('landBtn').addEventListener('pointerdown',e=>{e.preventDefault();tryLand();},{passive:false});
+document.getElementById('closeTargetsBtn').addEventListener('pointerdown',e=>{e.preventDefault();closeTargets();},{passive:false});
 
 /* ----------------------------- AUDIO (M8 stub now) ----------------------- */
 let actx=null,engineGain=null;
@@ -1526,25 +1716,24 @@ function render(){
   drawMesh(MESHes.stars,VP,[0.78,0.84,1.0],1.0,2);
 
   // sun (mesh built at r=600; colour by spectral class)
-  drawMesh(MESHes.sun,m4Mul(VP,m4Compose(system.sun.pos,qIdent(),system.sun.r/600)),system.sun.color,1.0);
+  drawSolid(MESHes.sun,m4Compose(system.sun.pos,qIdent(),system.sun.r/600),VP,system.sun.color);
 
   // planets (mesh built at r=1400)
   for(const p of system.planets){
-    drawMesh(MESHes.planet,m4Mul(VP,m4Compose(p.pos,qIdent(),p.r/1400)),p.color,1.0);
+    drawSolid(MESHes.planet,m4Compose(p.pos,qIdent(),p.r/1400),VP,p.color);
   }
 
-  // asteroids (solid, tinted by resource; brighter near depletion = empty)
+  // asteroids (solid, tinted by resource; darker when nearly depleted)
   for(const a of system.asteroids){
     let col=asteroidColor(a);
-    if(a.amount<=2 && !a.depleted) col=[col[0]*0.55,col[1]*0.55,col[2]*0.55];
-    drawMesh(MESHes.asteroid,m4Mul(VP,m4Compose(a.pos,a.quat,a.r/70)),col,1.0);
+    if(a.amount<=2 && !a.depleted) col=[col[0]*0.5,col[1]*0.5,col[2]*0.5];
+    drawSolid(MESHes.asteroid,m4Compose(a.pos,a.quat,a.r/70),VP,col);
   }
 
   // station (green = trading outpost, amber = derelict)
   if(system.station){
-    const stationM=m4Mul(VP,m4Compose(system.station.pos,system.station.quat,1));
     const col = system.station.market ? [0.35,1.0,0.8] : [1.0,0.55,0.2];
-    drawMesh(MESHes.station,stationM,col,1.0);
+    drawSolid(MESHes.station,m4Compose(system.station.pos,system.station.quat,1),VP,col);
   }
 
   // hostiles (solid red, amber when targeted, white flash when hit)
@@ -1553,7 +1742,7 @@ function render(){
     const isTgt = game.targetId===e.id;
     let col = isTgt?[1.0,0.62,0.2]:[1.0,0.3,0.35];
     if(e.hitT>1.1) col=[1.0,1.0,1.0];
-    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(e.pos,e.quat,1.2)),col,1.0);
+    drawSolid(MESHes.ship,m4Compose(e.pos,e.quat,1.2),VP,col);
   }
 
   // traders (solid amber haulers)
@@ -1562,7 +1751,7 @@ function render(){
     const isTgt = game.targetId===tr.id;
     let col = isTgt?[0.6,1.0,0.4]:[0.95,0.8,0.25];
     if(tr.hitT>1.1) col=[1.0,1.0,1.0];
-    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(tr.pos,tr.quat,1.6)),col,1.0);
+    drawSolid(MESHes.ship,m4Compose(tr.pos,tr.quat,1.6),VP,col);
   }
 
   // mining beam
@@ -1577,7 +1766,7 @@ function render(){
 
   // ship (hidden while destroyed)
   if(ship.alive){
-    drawMesh(MESHes.ship,m4Mul(VP,m4Compose(ship.pos,ship.quat,1)),[0.5,1.0,1.0],1.0);
+    drawSolid(MESHes.ship,m4Compose(ship.pos,ship.quat,1),VP,[0.5,1.0,1.0]);
   }
 
   // particles last (solid coloured points)
@@ -1624,6 +1813,7 @@ function updateHUD(dt){
   }
   updateContractHud();
   checkContracts();
+  updateLandButton();
   $('thrFill').style.height=(ship.throttle*100)+'%';
 }
 function updateContractHud(){
@@ -1645,7 +1835,7 @@ function buildContacts(){
   if(system.station) contacts.push({id:'stn',kind:'STATION',name:system.name+' STN',
     pos:system.station.pos,vel:[0,0,0],hostile:false});
   system.planets.forEach((p,i)=>contacts.push({id:'pl'+i,kind:'PLANET',name:'PLANET '+(i+1),
-    pos:p.pos,vel:[0,0,0],hostile:false}));
+    pos:p.pos,vel:[0,0,0],hostile:false,ref:p}));
   for(const e of enemies){
     if(!e.alive) continue;
     contacts.push({id:e.id,kind:'HOSTILE',name:e.name,pos:e.pos,vel:e.vel,hostile:true,ref:e});
@@ -1677,6 +1867,66 @@ function cycleTarget(dir){
   game.lockProg=0; game.locked=false;
   blip(760,0.05,'square');
 }
+
+/* Target selection list (opened with the TARGET button) */
+let targetFilter=null;
+function targetKinds(){
+  const m={};
+  for(const c of contacts) m[c.kind]=(m[c.kind]||0)+1;
+  return m;
+}
+function openTargets(){
+  if(game.state!==STATE.FLIGHT) return;
+  game.state=STATE.TARGETS;
+  buildContacts();
+  const t=currentTarget();
+  const kinds=targetKinds();
+  targetFilter = (t && kinds[t.kind]) ? t.kind : (kinds.HOSTILE?'HOSTILE':Object.keys(kinds)[0]||null);
+  $('hud').classList.add('hidden');
+  $('targets').classList.remove('hidden');
+  renderTargets();
+}
+function renderTargets(){
+  const typesEl=$('targetTypes'); if(!typesEl) return;
+  typesEl.innerHTML='';
+  const kinds=targetKinds();
+  for(const kind of ['HOSTILE','TRADER','ASTEROID','STATION','PLANET']){
+    if(!kinds[kind]) continue;
+    const b=document.createElement('button');
+    b.className='tbtn'+(kind===targetFilter?' on':'');
+    b.textContent=kind+' ('+kinds[kind]+')';
+    b.addEventListener('pointerdown',e=>{e.preventDefault();targetFilter=kind;renderTargets();},{passive:false});
+    typesEl.appendChild(b);
+  }
+  const list=$('targetList'); list.innerHTML='';
+  const arr=contacts.filter(c=>c.kind===targetFilter).sort((a,b)=>tgtDistTo(a)-tgtDistTo(b));
+  if(!arr.length){ list.innerHTML='<div class="mktRow"><span class="name">NO CONTACTS</span></div>'; return; }
+  for(const c of arr){
+    const d=tgtDistTo(c);
+    let extra='';
+    if(c.hostile && c.ref) extra='SHIELD '+Math.round(c.ref.shield)+' / HULL '+Math.round(c.ref.hull);
+    else if(c.kind==='ASTEROID' && c.ref) extra=c.ref.resName+' \u00b7 '+c.ref.amount+'u';
+    else if(c.kind==='TRADER' && c.ref) extra='CARGO '+traderCargo(c.ref)+'u \u00b7 '+c.ref.credits.toLocaleString()+' CR';
+    const row=document.createElement('div'); row.className='mktRow';
+    row.innerHTML='<span class="name">'+c.name+'<br><span class="hold">'+extra+'</span></span>'+
+      '<span class="price">'+(d/1000).toFixed(2)+'km</span>';
+    const b=document.createElement('button'); b.textContent=(game.targetId===c.id?'\u25c9':'\u25cb');
+    b.addEventListener('pointerdown',e=>{e.preventDefault();selectTargetFromList(c.id);},{passive:false});
+    row.appendChild(b);
+    list.appendChild(row);
+  }
+}
+function selectTargetFromList(id){
+  game.targetId=id; game.lockProg=0; game.locked=false;
+  closeTargets();
+  const t=currentTarget(); if(t) toast('TARGET: '+t.name);
+}
+function closeTargets(){
+  $('targets').classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  if(game.state===STATE.TARGETS) game.state=STATE.FLIGHT;
+}
+
 function updateTargeting(dt){
   buildContacts();
   // auto-acquire only when nothing valid is selected
@@ -1813,8 +2063,24 @@ function offscreenAngle(front,pr,rel){
   let right=V.cross(fwd,ref); right=V.len(right)>1e-4?V.norm(right):[1,0,0];
   return Math.atan2(V.dot(rel,fwd), V.dot(rel,right)); // behind => negative y
 }
+// The fire axis: project a point far along the ship's nose to get the reticle
+// position. Because the chase camera sits above/behind the hull, screen centre
+// does NOT correspond to where the guns point — so place the reticle on the
+// vanishing point of the ship's forward direction instead.
+function updateReticle(){
+  const el=$('reticle'); if(!el || !cam.VP) return;
+  const fwd=shipForward();
+  const far=V.add(ship.pos,V.scale(fwd,1000000));
+  const c=xform4(cam.VP,far);
+  if(c[3]<=0.0001){ el.style.opacity='0.2'; return; }
+  const ndcx=c[0]/c[3], ndcy=c[1]/c[3];
+  el.style.opacity='1';
+  el.style.left=((ndcx*0.5+0.5)*vw)+'px';
+  el.style.top=((1-(ndcy*0.5+0.5))*vh)+'px';
+}
 function updateTargetUI(){
   const box=$('targetBox'), pip=$('leadPip'), wp=$('waypoint');
+  updateReticle();
   if(!box||!wp) return;
   const t=currentTarget();
   if(!t){
@@ -2308,6 +2574,204 @@ function toast(msg){
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1400);
 }
 
+/* ============================ PLANET SURFACE ============================= */
+const SURF={HALF:1600,STEP:50};
+const WALK_SPEED=42, GRAVITY=72, JUMP_V=36;
+const player={pos:[0,0,0],vy:0,yaw:0,onGround:true};
+let surface=null, spaceReturn=null;
+const surfaceCache={};
+
+function makeNoise(seed){
+  return function(x,z){
+    const xi=Math.floor(x), zi=Math.floor(z), xf=x-xi, zf=z-zi;
+    const h=(ix,iz)=>{
+      let n=(ix*374761393 + iz*668265263 + seed*2246822519)|0;
+      n=(n^(n>>>13))|0; n=Math.imul(n,1274126177)|0;
+      return ((n>>>8)&0xffff)/65535;
+    };
+    const v00=h(xi,zi), v10=h(xi+1,zi), v01=h(xi,zi+1), v11=h(xi+1,zi+1);
+    const u=xf*xf*(3-2*xf), v=zf*zf*(3-2*zf);
+    return (v00*(1-u)+v10*u)*(1-v)+(v01*(1-u)+v11*u)*v;
+  };
+}
+const BIOMES=[
+  {name:'DESERT',  amp:110, sky:[0.62,0.55,0.38], low:[0.52,0.40,0.22], mid:[0.80,0.66,0.38], high:[0.94,0.86,0.64]},
+  {name:'ICE',     amp:130, sky:[0.66,0.78,0.90], low:[0.50,0.66,0.82], mid:[0.82,0.90,0.98], high:[1.00,1.00,1.00]},
+  {name:'FOREST',  amp:150, sky:[0.34,0.46,0.40], low:[0.14,0.28,0.15], mid:[0.28,0.52,0.24], high:[0.62,0.64,0.46]},
+  {name:'VOLCANIC',amp:230, sky:[0.30,0.14,0.12], low:[0.16,0.12,0.12], mid:[0.42,0.22,0.20], high:[0.82,0.36,0.18]},
+  {name:'BARREN',  amp:120, sky:[0.13,0.13,0.18], low:[0.30,0.30,0.33], mid:[0.54,0.54,0.58], high:[0.82,0.82,0.88]},
+];
+function lerpAngle(a,b,t){ let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return a+d*t; }
+
+function buildSurface(planet, planetIdx){
+  const seed=(hashSeed(current.gx*57+planetIdx, 91, current.gz*57+planetIdx))>>>0;
+  const biome=BIOMES[seed%BIOMES.length];
+  const noise=makeNoise(seed);
+  const heightAt=(x,z)=>{
+    let a=1,f=0.006,s=0,n=0;
+    for(let o=0;o<4;o++){ s+=a*noise(x*f,z*f); n+=a; a*=0.5; f*=2; }
+    let h=(s/n-0.5)*biome.amp;
+    h+=(noise(x*0.02+31.7,z*0.02+11.3)-0.5)*biome.amp*0.25;
+    return h;
+  };
+  const N=Math.floor(SURF.HALF*2/SURF.STEP);
+  const H=[];
+  let hmin=1e9,hmax=-1e9;
+  for(let i=0;i<=N;i++){ H[i]=[]; for(let j=0;j<=N;j++){
+    const x=-SURF.HALF+i*SURF.STEP, z=-SURF.HALF+j*SURF.STEP;
+    const y=heightAt(x,z); H[i][j]=y; if(y<hmin)hmin=y; if(y>hmax)hmax=y;
+  }}
+  const span=Math.max(1,hmax-hmin);
+  const colFor=(y,slope)=>{
+    const t=(y-hmin)/span;
+    const c = t<0.4?biome.low : t<0.72?biome.mid : biome.high;
+    const sh=Math.max(0.62,1-slope*0.85);
+    return [c[0]*sh,c[1]*sh,c[2]*sh];
+  };
+  const arr=[];
+  const normalAt=(i,j)=>{
+    const hl=H[Math.max(0,i-1)][j], hr=H[Math.min(N,i+1)][j];
+    const hd=H[i][Math.max(0,j-1)], hu=H[i][Math.min(N,j+1)];
+    return V.norm([hl-hr, 2*SURF.STEP, hd-hu]);
+  };
+  const V9=(i,j)=>{
+    const n=normalAt(i,j), c=colFor(H[i][j],1-n[1]);
+    arr.push(-SURF.HALF+i*SURF.STEP, H[i][j], -SURF.HALF+j*SURF.STEP, n[0],n[1],n[2], c[0],c[1],c[2]);
+  };
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+    V9(i,j); V9(i+1,j); V9(i+1,j+1);
+    V9(i,j); V9(i+1,j+1); V9(i,j+1);
+  }
+  return {planet,planetIdx,seed,biome,heightAt,H,N,mesh:makeTerrainMesh(arr),
+    shipPos:[0,heightAt(0,0),0], shipQuat:qAxisAngle([0,1,0],0.6), camYaw:Math.PI, aboard:false};
+}
+function tryLand(){
+  if(game.state!==STATE.FLIGHT) return;
+  const t=currentTarget();
+  if(!t || t.kind!=='PLANET' || !t.ref){ toast('NO PLANET TARGETED'); return; }
+  const p=t.ref;
+  const d=V.len(V.sub(ship.pos,p.pos));
+  if(d > p.r+600){ toast('TOO FAR TO LAND'); return; }
+  if(V.len(ship.vel)>160){ toast('SLOW DOWN TO LAND'); return; }
+  const idx=system.planets.indexOf(p);
+  const key=current.gx+'_'+current.gz+'_'+idx;
+  if(!surfaceCache[key]) surfaceCache[key]=buildSurface(p,idx);
+  surface=surfaceCache[key];
+  surface.aboard=false;
+  spaceReturn={pos:ship.pos.slice(),quat:ship.quat.slice(),vel:ship.vel.slice()};
+  player.pos=[8, surface.heightAt(8,5)+0.1, 5];
+  player.vy=0; player.yaw=Math.PI; player.onGround=true;
+  surface.camYaw=Math.PI;
+  cam.smooth=[10,20,20];
+  game.state=STATE.SURFACE;
+  $('hud').classList.add('surface-mode');
+  $('landBtn').classList.remove('show');
+  setText('sfcName', system.name+' P'+(idx+1));
+  setText('sfcBiome', surface.biome.name);
+  updateSfcUI();
+  toast('LANDED \u2014 '+surface.biome.name+' SURFACE');
+  blip(220,0.5,'sine');
+}
+function launchFromSurface(){
+  if(!surface) return;
+  const p=surface.planet;
+  const dir=V.norm(V.sub(spaceReturn.pos,p.pos));
+  ship.pos=V.add(p.pos,V.scale(dir,p.r+500));
+  ship.quat=qLookAt(dir,[0,1,0]);
+  ship.vel=V.scale(dir,140);
+  ship.throttle=0.4; ship.alive=true; ship.hull=Math.max(ship.hull,60);
+  game.state=STATE.FLIGHT;
+  $('hud').classList.remove('surface-mode');
+  cam.smooth=V.add(ship.pos,qRotate([0,7,24],ship.quat));
+  surface=null;
+  toast('LIFT-OFF');
+  noiseSweep(0.8,90,1800,0.25);
+}
+function sfcAction(){
+  if(!surface) return;
+  if(surface.aboard){ launchFromSurface(); return; }
+  const d=Math.hypot(player.pos[0]-surface.shipPos[0], player.pos[2]-surface.shipPos[2]);
+  if(d<14){ surface.aboard=true; toast('ONBOARD \u2014 READY TO LAUNCH'); blip(400,0.2,'triangle'); }
+  else toast('WALK TO THE SHIP');
+  updateSfcUI();
+}
+function updateSfcUI(){
+  const act=$('sfcActionBtn'); if(!act||!surface) return;
+  if(surface.aboard){ act.textContent='LAUNCH'; act.classList.add('on'); }
+  else {
+    const d=Math.hypot(player.pos[0]-surface.shipPos[0], player.pos[2]-surface.shipPos[2]);
+    act.textContent = d<14 ? 'ENTER SHIP' : 'WALK TO SHIP';
+    act.classList.toggle('on', d<14);
+  }
+}
+function updateSurface(dt){
+  if(!surface) return;
+  if(!surface.aboard){
+    const mx=input.stick[0], mz=input.stick[1];
+    const cf=[Math.sin(surface.camYaw),0,Math.cos(surface.camYaw)];
+    const cr=[Math.cos(surface.camYaw),0,-Math.sin(surface.camYaw)];
+    const dir=[cf[0]*(-mz)+cr[0]*mx, 0, cf[2]*(-mz)+cr[2]*mx];
+    const l=V.len(dir);
+    if(l>0.06){
+      const nd=V.scale(dir,1/l), spd=WALK_SPEED*Math.min(1,l);
+      player.pos[0]+=nd[0]*spd*dt; player.pos[2]+=nd[2]*spd*dt;
+      player.yaw=Math.atan2(nd[0],nd[2]);
+      surface.camYaw=lerpAngle(surface.camYaw,player.yaw,1-Math.exp(-4*dt));
+      // keep player inside the terrain patch
+      player.pos[0]=Math.max(-SURF.HALF+30,Math.min(SURF.HALF-30,player.pos[0]));
+      player.pos[2]=Math.max(-SURF.HALF+30,Math.min(SURF.HALF-30,player.pos[2]));
+    }
+    player.vy-=GRAVITY*dt;
+    player.pos[1]+=player.vy*dt;
+    const gh=surface.heightAt(player.pos[0],player.pos[2]);
+    if(player.pos[1]<=gh){ player.pos[1]=gh; player.vy=0; player.onGround=true; }
+    else player.onGround=false;
+    if(input.jump && player.onGround){ player.vy=JUMP_V; player.onGround=false; }
+  }
+  input.jump=false;
+  updateSfcUI();
+}
+function updateSurfaceCamera(dt){
+  if(!surface) return;
+  const tx = surface.aboard ? surface.shipPos[0] : player.pos[0];
+  const ty = (surface.aboard ? surface.shipPos[1]+3 : player.pos[1]+3);
+  const tz = surface.aboard ? surface.shipPos[2] : player.pos[2];
+  const cd=26, ch=13, yaw=surface.camYaw;
+  const desired=[tx-Math.sin(yaw)*cd, ty+ch, tz-Math.cos(yaw)*cd];
+  cam.smooth=V.lerp(cam.smooth,desired,1-Math.exp(-6*dt));
+  cam.pos=cam.smooth;
+  cam.view=m4LookAt(cam.pos,[tx,ty,tz],[0,1,0]);
+}
+function renderSurface(){
+  if(!surface) return;
+  const sky=surface.biome.sky;
+  gl.clearColor(sky[0],sky[1],sky[2],1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  const proj=m4Perspective(Math.PI/3,vw/vh,0.5,200000);
+  const VP=m4Mul(proj,cam.view);
+  drawTerrainMesh(surface.mesh,m4Compose([0,0,0],qIdent(),1),VP);
+  const sp=surface.shipPos;
+  drawSolid(MESHes.ship,m4Compose([sp[0],sp[1]+3,sp[2]],surface.shipQuat,1.2),VP,[0.5,1.0,1.0]);
+  if(!surface.aboard){
+    const py=player.pos[1];
+    drawSolid(MESHes.body,m4Compose([player.pos[0],py+1.7,player.pos[2]],qAxisAngle([0,1,0],player.yaw),1),VP,[0.95,0.78,0.22]);
+    drawSolid(MESHes.head,m4Compose([player.pos[0],py+3.7,player.pos[2]],qAxisAngle([0,1,0],player.yaw),1),VP,[0.85,0.9,0.95]);
+  }
+}
+function updateLandButton(){
+  const el=$('landBtn'); if(!el) return;
+  if(game.state!==STATE.FLIGHT){ el.classList.remove('show'); return; }
+  const t=currentTarget();
+  let can=false;
+  if(t && t.kind==='PLANET' && t.ref){
+    const d=V.len(V.sub(ship.pos,t.ref.pos));
+    if(d < t.ref.r+600 && V.len(ship.vel)<160) can=true;
+  }
+  el.classList.toggle('show',can);
+}
+
 /* ----------------------------- LOOP -------------------------------------- */
 let last=0;
 function frame(now){
@@ -2330,6 +2794,8 @@ function frame(now){
     updateDocking(dt);
   } else if(game.state===STATE.WARP){
     updateWarp(dt);
+  } else if(game.state===STATE.SURFACE){
+    updateSurface(dt);
   }
   if(game.state===STATE.FLIGHT||game.state===STATE.DOCKING||game.state===STATE.DEAD){
     buildContacts();
@@ -2340,6 +2806,9 @@ function frame(now){
     drawRadar();
     updateTargetUI();
     updateAudio();
+  } else if(game.state===STATE.SURFACE){
+    updateSurfaceCamera(dt);
+    renderSurface();
   }
 }
 function updateAudio(){
